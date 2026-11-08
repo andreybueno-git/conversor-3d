@@ -84,10 +84,10 @@ const PASSOS_CONVERSOR: Passo[] = [
   },
   {
     titulo: "Baixe em STL",
-    texto: <>O <b>STL já vem escolhido</b> — é o que toda impressora e todo fatiador aceitam. Sai em <b>qualidade máxima</b>: todos os triângulos do arquivo, com a precisão total, nada reduzido.</>,
+    texto: <>O <b>botão grande já baixa em STL</b> — é o que toda impressora e todo fatiador aceitam (o 3MF fica num botão menor, se preferir). Sai em <b>qualidade máxima</b>: todos os triângulos do arquivo, com a precisão total, nada reduzido.</>,
     ilustracao: (
       <div className="tt-baixar" aria-hidden="true">
-        <span className="tt-botao">↓ Baixar peca.stl</span>
+        <span className="tt-botao">↓ Baixar em STL</span>
         <span className="tt-selo">✓ qualidade máxima</span>
       </div>
     ),

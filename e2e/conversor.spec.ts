@@ -99,16 +99,14 @@ test.describe("o conversor de arquivos 3D", () => {
     await expect(medidas).toContainText("20 mm");
 
     /* o STL vem escolhido: o primeiro download já é STL, com o selo de qualidade máxima */
-    await expect(page.getByRole("radio", { name: /STL/ })).toHaveAttribute("aria-checked", "true");
     await expect(page.locator(".cv-qualidade")).toContainText("12 triângulos");
-    const [baixadoStl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar Meu-cubo-v2\.stl/ }).click()]);
+    const [baixadoStl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em STL/ }).click()]);
     expect(baixadoStl.suggestedFilename()).toBe("Meu-cubo-v2.stl");
     const stl = readFileSync((await baixadoStl.path())!);
     expect(stl.length, "STL binário: 84 + 50 × 12 triângulos").toBe(84 + 50 * 12);
     expect(stl.subarray(0, 24).toString()).toBe("Conversor 3D | mm | Z-up");
 
-    await page.getByRole("radio", { name: /3MF/ }).click();
-    const [baixado3mf] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar Meu-cubo-v2\.3mf/ }).click()]);
+    const [baixado3mf] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em 3MF/ }).click()]);
     expect(baixado3mf.suggestedFilename()).toBe("Meu-cubo-v2.3mf");
     const zip = readFileSync((await baixado3mf.path())!);
     expect(zip.subarray(0, 4).toString("hex"), "o 3MF é um ZIP").toBe("504b0304");
@@ -132,7 +130,7 @@ test.describe("o conversor de arquivos 3D", () => {
     await page.locator(".cv-item", { hasText: "peca.amf" }).click();
     await expect(page.locator(".cv-medidas")).toContainText("30 mm");
 
-    const [zip] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar os 3 em ZIP/ }).click()]);
+    const [zip] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar os 3 em STL/ }).click()]);
     expect(zip.suggestedFilename()).toBe("convertidos-stl.zip");
     const bytes = readFileSync((await zip.path())!);
     for (const nome of ["casa.stl", "peca.stl", "tri.stl"]) expect(bytes.includes(Buffer.from(nome)), nome).toBe(true);
@@ -144,8 +142,7 @@ test.describe("o conversor de arquivos 3D", () => {
   test("o 3MF que sai daqui volta a entrar (e o .skp recebe o caminho, não um erro seco)", async ({ page }) => {
     await page.goto("/");
     await page.locator("input[type=file]").setInputFiles([arquivo("cubo.obj", CUBO_OBJ)]);
-    await page.getByRole("radio", { name: /3MF/ }).click();
-    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar cubo\.3mf/ }).click()]);
+    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em 3MF/ }).click()]);
     const tresmf = readFileSync((await baixado.path())!);
 
     await page.locator("input[type=file]").setInputFiles([
@@ -169,7 +166,7 @@ test.describe("o conversor de arquivos 3D", () => {
     await expect(page.locator(".cv-ilha")).toHaveAttribute("data-arrastando", "sim");
     await page.dispatchEvent("footer", "drop", { dataTransfer: dt });
     await expect(page.locator(".cv-ilha")).toHaveAttribute("data-arrastando", "nao");
-    await expect(page.getByRole("button", { name: /Baixar solto\.stl/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Baixar em STL/ })).toBeVisible();
   });
 });
 
@@ -189,7 +186,7 @@ test.describe("o tutorial", () => {
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await expect(quadro).toContainText("Passo 6 de 6");
-    await expect(quadro).toContainText("STL já vem escolhido");
+    await expect(quadro).toContainText("botão grande já baixa em STL");
     /* o último botão abre o seletor de arquivos e fecha o quadro */
     const [seletor] = await Promise.all([page.waitForEvent("filechooser"), quadro.getByRole("button", { name: "Escolher meu arquivo" }).click()]);
     expect(seletor.isMultiple()).toBe(true);

@@ -32,11 +32,6 @@ interface Item {
 }
 
 const UNIDADES: Unidade[] = ["mm", "cm", "m", "pol"];
-/* STL primeiro e escolhido de saída: é o que todo fatiador e toda impressora aceitam */
-const SAIDAS: { id: Saida; nome: string; nota: string }[] = [
-  { id: "stl", nome: "STL", nota: "abre em qualquer fatiador" },
-  { id: "3mf", nome: "3MF", nota: "moderno, em mm, menor" },
-];
 
 let proximoId = 1;
 
@@ -57,9 +52,8 @@ const respirar = () => new Promise<void>((r) => requestAnimationFrame(() => setT
 export function Conversor() {
   const [itens, setItens] = useState<Item[]>([]);
   const [selecionado, setSelecionado] = useState<number | null>(null);
-  const [saida, setSaida] = useState<Saida>("stl");
   const [arrastando, setArrastando] = useState(false);
-  const [ocupado, setOcupado] = useState<null | "um" | "todos">(null);
+  const [ocupado, setOcupado] = useState<null | Saida | "todos">(null);
   const [aviso, setAviso] = useState("");
   const [sem3d, setSem3d] = useState(false);
   const [com3d, setCom3d] = useState(false);
@@ -185,18 +179,20 @@ export function Conversor() {
   }, [atual, com3d]);
 
   /* ── baixar ── */
-  async function converterUm(item: Item, nome: string) {
+  /* O BOTÃO PRINCIPAL É SEMPRE STL (o que toda impressora e todo fatiador aceitam);
+     o 3MF é um botão menor, opcional, embaixo. Sem seletor: ninguém baixa o formato errado. */
+  async function converterUm(item: Item, nome: string, saida: Saida) {
     const { converter, TIPO_MIME } = await import("./gravar");
     const r = await converter(item.sopa!, { unidade: item.unidade, giro: item.giro, saida, titulo: nome.replace(/\.[^.]+$/, "") });
     return { bytes: r.bytes, tipo: TIPO_MIME[saida] };
   }
 
-  async function baixarUm(item: Item) {
-    setOcupado("um");
+  async function baixarUm(item: Item, saida: Saida) {
+    setOcupado(saida);
     try {
       await respirar();
       const nome = nomeDeSaida(item.nome, saida);
-      const { bytes, tipo } = await converterUm(item, nome);
+      const { bytes, tipo } = await converterUm(item, nome, saida);
       baixar([bytes as BlobPart], nome, tipo);
       setAviso(`${nome} pronto, ${formatarBytes(bytes.length)}.`);
     } catch (e) {
@@ -207,6 +203,7 @@ export function Conversor() {
   }
 
   async function baixarTodos() {
+    const saida: Saida = "stl";
     setOcupado("todos");
     try {
       await respirar();
@@ -214,7 +211,7 @@ export function Conversor() {
       const nomes = nomesUnicos(prontos.map((i) => nomeDeSaida(i.nome, saida)));
       const arquivos = [];
       for (const [k, item] of prontos.entries()) {
-        arquivos.push({ nome: nomes[k], dados: (await converterUm(item, nomes[k])).bytes });
+        arquivos.push({ nome: nomes[k], dados: (await converterUm(item, nomes[k], saida)).bytes });
       }
       const zip = gravarZip(arquivos);
       baixar([zip as BlobPart], `convertidos-${saida}.zip`, "application/zip");
@@ -313,8 +310,9 @@ export function Conversor() {
                   <h2 className="cv-rotulo">Posição na mesa</h2>
                   <div className="cv-giros">
                     {(["x", "y", "z"] as const).map((eixo) => (
-                      <button key={eixo} type="button" className="cv-giro" onClick={() => mudar(atual.id, { giro: girar(atual.giro, eixo) })}>
-                        <span aria-hidden="true" className="cv-giro-seta">↻</span> Girar em {eixo.toUpperCase()}
+                      <button key={eixo} type="button" className="cv-giro" aria-label={`Girar em ${eixo.toUpperCase()}`}
+                              onClick={() => mudar(atual.id, { giro: girar(atual.giro, eixo) })}>
+                        <span aria-hidden="true" className="cv-giro-seta">↻</span> Girar {eixo.toUpperCase()}
                       </button>
                     ))}
                     <button type="button" className="cv-giro cv-giro-volta"
@@ -326,36 +324,34 @@ export function Conversor() {
               </>
             )}
 
-            <div className="cv-grupo">
-              <h2 className="cv-rotulo">Converter para</h2>
-              <div className="cv-saidas" role="radiogroup" aria-label="Formato de saída" data-saida={saida}>
-                <span className="cv-saidas-pilula" aria-hidden="true" />
-                {SAIDAS.map((s) => (
-                  <button key={s.id} type="button" role="radio" aria-checked={saida === s.id} className="cv-saida" onClick={() => setSaida(s.id)}>
-                    <b>{s.nome}</b><small>{s.nota}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {atual?.estado === "pronto" && (
               <p className="cv-qualidade">
                 <span className="cv-qualidade-selo" aria-hidden="true">✓</span>
                 <span>
                   <b>Qualidade máxima</b> — os {formatarInteiro((atual.sopa?.length ?? 0) / 9)} triângulos do arquivo, sem reduzir nem
-                  arredondar{saida === "stl" ? " (STL binário, precisão total)" : " (3MF com a precisão total do arquivo)"}.
+                  arredondar (STL binário, precisão total).
                 </span>
               </p>
             )}
             <div className="cv-acoes">
               {atual?.estado === "pronto" && (
-                <button type="button" className="cv-botao" disabled={ocupado !== null} onClick={() => baixarUm(atual)}>
-                  {ocupado === "um" ? <><span className="cv-girando" aria-hidden="true" /> Gravando…</> : <>Baixar {nomeDeSaida(atual.nome, saida)}</>}
+                <button type="button" className="cv-botao cv-botao-stl" disabled={ocupado !== null} onClick={() => baixarUm(atual, "stl")}>
+                  {ocupado === "stl" ? <><span className="cv-girando" aria-hidden="true" /> Gravando o STL…</> : (
+                    <span className="cv-botao-duplo">
+                      <b>↓ Baixar em STL</b>
+                      <small>{nomeDeSaida(atual.nome, "stl")}</small>
+                    </span>
+                  )}
                 </button>
               )}
               {prontos.length > 1 && (
                 <button type="button" className="cv-botao cv-botao-2" disabled={ocupado !== null} onClick={baixarTodos}>
-                  {ocupado === "todos" ? <><span className="cv-girando" aria-hidden="true" /> Montando o ZIP…</> : <>Baixar os {prontos.length} em ZIP</>}
+                  {ocupado === "todos" ? <><span className="cv-girando" aria-hidden="true" /> Montando o ZIP…</> : <>Baixar os {prontos.length} em STL (num ZIP)</>}
+                </button>
+              )}
+              {atual?.estado === "pronto" && (
+                <button type="button" className="cv-botao-3mf" disabled={ocupado !== null} onClick={() => baixarUm(atual, "3mf")}>
+                  {ocupado === "3mf" ? "Gravando o 3MF…" : <>Prefere 3MF? <u>Baixar em 3MF</u></>}
                 </button>
               )}
             </div>

@@ -57,7 +57,7 @@ function Pagina() {
         <ol className="cv-passos">
           <li><span className="cv-passo-n">1</span><b>Solte o arquivo</b><span>Arraste para qualquer lugar da página, ou escolha no aparelho. Vários de uma vez.</span></li>
           <li><span className="cv-passo-n">2</span><b>Confira na prévia</b><span>Gire a peça com o dedo, veja as medidas em mm e acerte a unidade e a posição.</span></li>
-          <li><span className="cv-passo-n">3</span><b>Baixe em STL</b><span>Em qualidade máxima, sem reduzir nada. Também sai em 3MF, um por vez ou todos num ZIP.</span></li>
+          <li><span className="cv-passo-n">3</span><b>Baixe em STL</b><span>O botão grande baixa em STL, em qualidade máxima, sem reduzir nada. Vários de uma vez saem num ZIP; o 3MF também está lá, se preferir.</span></li>
         </ol>
       </section>
 

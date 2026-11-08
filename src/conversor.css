@@ -167,7 +167,7 @@
 .cv-ficha[aria-checked="true"] { border-color: var(--cv-acao); background: var(--cv-acao); color: #fff; }
 
 .cv-giros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
-.cv-giro {
+.cv-giro { white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; min-height: 44px; padding: 0 0.5rem;
   border: 1px solid var(--cv-fio-forte); border-radius: 0.85rem; background: #fff; color: var(--cv-tinta);
   font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: border-color 160ms ease, transform 160ms ease;
@@ -177,23 +177,6 @@
 .cv-giro-seta { display: inline-block; color: var(--cv-acao-escura); font-size: 1.1rem; transition: transform 380ms var(--ve-saida, ease); }
 .cv-giro:active .cv-giro-seta { transform: rotate(90deg); }
 .cv-giro-volta { grid-column: 1 / -1; border-style: dashed; color: var(--cv-apoio); font-weight: 500; }
-
-/* STL | 3MF: a pílula desliza para o lado escolhido */
-.cv-saidas { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 0.3rem; border-radius: 1.1rem; background: var(--cv-nevoa); }
-.cv-saidas-pilula {
-  position: absolute; top: 0.3rem; bottom: 0.3rem; left: 0.3rem; width: calc(50% - 0.3rem); border-radius: 0.85rem;
-  background: #fff; box-shadow: 0 6px 18px -8px rgb(29 29 31 / 30%), 0 0 0 1px var(--cv-fio);
-  transition: transform 320ms var(--ve-saida, cubic-bezier(0.2, 0.8, 0.2, 1));
-}
-.cv-saidas[data-saida="3mf"] .cv-saidas-pilula { transform: translateX(100%); }
-.cv-saida {
-  position: relative; z-index: 1; display: grid; gap: 0.1rem; min-height: 56px; padding: 0.5rem; border: 0; border-radius: 0.85rem;
-  background: transparent; color: var(--cv-apoio); font: inherit; cursor: pointer; transition: color 200ms ease;
-}
-.cv-saida b { font-size: 1.1rem; letter-spacing: -0.01em; }
-.cv-saida small { font-size: 0.78rem; }
-.cv-saida[aria-checked="true"] { color: var(--cv-tinta); }
-.cv-saida[aria-checked="true"] b { color: var(--cv-acao-escura); }
 
 .cv-acoes { display: grid; gap: 0.5rem; }
 .cv-botao {
@@ -360,3 +343,15 @@ body {
   flex: none; display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%;
   background: var(--cv-ok); color: #fff; font-size: 0.8rem; font-weight: 800;
 }
+
+/* o botão principal: sempre STL, com o nome do arquivo embaixo */
+.cv-botao-stl { min-height: 64px; }
+.cv-botao-duplo { display: grid; justify-items: center; gap: 0.1rem; }
+.cv-botao-duplo b { font-size: 1.12rem; }
+.cv-botao-duplo small { font-size: 0.78rem; font-weight: 600; opacity: 0.88; overflow-wrap: anywhere; }
+.cv-botao-3mf {
+  min-height: 44px; padding: 0 0.5rem; border: 0; background: none; color: var(--cv-apoio);
+  font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.cv-botao-3mf u { color: var(--cv-acao-escura); font-weight: 700; text-underline-offset: 0.2em; }
+.cv-botao-3mf:disabled { cursor: progress; opacity: 0.7; }
