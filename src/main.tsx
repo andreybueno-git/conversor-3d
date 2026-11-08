@@ -1,7 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { FORMATOS } from "./formatos";
 import { Conversor } from "./Conversor";
+import { BotaoTutorial, Tutorial } from "./Tutorial";
 import "./conversor.css";
+import "./tutorial.css";
 
 /* A PÁGINA: o topo, o conversor e as explicações. Um HTML só, sem servidor:
    o arquivo de quem converte não sai do aparelho. */
@@ -45,6 +47,7 @@ function Pagina() {
           OBJ, FBX, glTF, DAE do SketchUp, 3DS, PLY e mais — com prévia 3D, medidas em milímetro e a peça já em pé na mesa.
           Tudo no seu navegador: o arquivo não sai do seu aparelho.
         </p>
+        <BotaoTutorial />
       </header>
 
       <Conversor />
@@ -54,7 +57,7 @@ function Pagina() {
         <ol className="cv-passos">
           <li><span className="cv-passo-n">1</span><b>Solte o arquivo</b><span>Arraste para qualquer lugar da página, ou escolha no aparelho. Vários de uma vez.</span></li>
           <li><span className="cv-passo-n">2</span><b>Confira na prévia</b><span>Gire a peça com o dedo, veja as medidas em mm e acerte a unidade e a posição.</span></li>
-          <li><span className="cv-passo-n">3</span><b>Baixe em STL ou 3MF</b><span>Um arquivo por vez ou todos num ZIP, prontos para o fatiador.</span></li>
+          <li><span className="cv-passo-n">3</span><b>Baixe em STL</b><span>Em qualidade máxima, sem reduzir nada. Também sai em 3MF, um por vez ou todos num ZIP.</span></li>
         </ol>
       </section>
 
@@ -102,6 +105,8 @@ function Pagina() {
           ))}
         </div>
       </section>
+
+      <Tutorial />
 
       <footer className="cv-rodape">
         Conversor 3D · feito com <a href="https://threejs.org">three.js</a> · o seu arquivo nunca sai do seu aparelho

@@ -11,7 +11,16 @@ O `.skp` do SketchUp é um formato fechado: a página explica como exportar
 **Como funciona:** solte um ou vários arquivos em qualquer lugar da página →
 confira na prévia 3D (gira com o dedo, mostra largura × profundidade × altura
 em mm), acerte a unidade (mm, cm, m, pol) e a posição (girar 90° em X/Y/Z) →
-baixe em 3MF ou STL, um por vez ou todos num ZIP.
+baixe em **STL (o padrão)** ou 3MF, um por vez ou todos num ZIP.
+
+**Tutorial:** na primeira visita abre um passo a passo que pergunta que arquivo
+a pessoa tem. Quem tem `.skp` é levado pelo SketchUp grátis no navegador
+(abrir › **Exportar** › STL — não "Baixar") antes dos passos do conversor.
+O botão "Como usar" do topo o abre de novo.
+
+**Qualidade:** nada é reduzido nem arredondado. O STL é binário com todos os
+triângulos do arquivo; o 3MF guarda cada coordenada com 9 algarismos (volta ao
+mesmo número exato). Há teste que confere as duas coisas.
 
 ## Publicar no GitHub Pages
 
@@ -25,13 +34,14 @@ branch `main`, pasta `/ (root)`. O link fica
 ```bash
 npm install
 npm run build     # gera o index.html da raiz — faça commit dele
-npm test          # 28 testes da malha, dos formatos e da gravação
+npm test          # 29 testes da malha, dos formatos e da gravação
 npx playwright install chromium && npm run e2e   # a página num navegador de verdade
 ```
 
 | arquivo | o quê |
 |---|---|
 | `src/main.tsx` | a página: topo, passos, formatos, SketchUp, perguntas |
+| `src/Tutorial.tsx`, `src/tutorial.css` | o tutorial da primeira visita e o botão "Como usar" |
 | `src/Conversor.tsx` | a tela do conversor: fila, véu de arrastar, ajustes, downloads |
 | `src/conversor.css` | o visual |
 | `src/formatos.ts` | os formatos aceitos, tetos (300 MB, 5 milhões de triângulos), nomes de saída |

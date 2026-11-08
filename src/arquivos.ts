@@ -164,6 +164,10 @@ const xml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 /** O centro da mesa onde o item é posto (mm): o fatiador o recentraliza na mesa dele de qualquer jeito. */
 const CENTRO = 128;
 
+/* 9 algarismos significativos devolvem exatamente o mesmo float32: o 3MF guarda
+   a coordenada com a precisão inteira do arquivo, sem arredondar a peça */
+const num = (v: number) => String(+v.toPrecision(9));
+
 /* o XML sai aos pedaços: 1 milhão de triângulos são ~70 MB de texto */
 function* modelo(p: Float32Array, t: Uint32Array, titulo: string): Generator<string> {
   yield `<?xml version="1.0" encoding="UTF-8"?>
@@ -179,7 +183,7 @@ function* modelo(p: Float32Array, t: Uint32Array, titulo: string): Generator<str
   const nv = p.length / 3;
   for (let i = 0; i < nv; i += LOTE) {
     let s = "";
-    for (let v = i; v < Math.min(nv, i + LOTE); v++) s += `<vertex x="${+p[v * 3].toFixed(5)}" y="${+p[v * 3 + 1].toFixed(5)}" z="${+p[v * 3 + 2].toFixed(5)}"/>\n`;
+    for (let v = i; v < Math.min(nv, i + LOTE); v++) s += `<vertex x="${num(p[v * 3])}" y="${num(p[v * 3 + 1])}" z="${num(p[v * 3 + 2])}"/>\n`;
     yield s;
   }
   yield "</vertices>\n<triangles>\n";

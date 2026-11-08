@@ -303,6 +303,30 @@ f 1 4 3 2\nf 5 6 7 8\nf 1 2 6 5\nf 3 4 8 7\nf 2 3 7 6\nf 1 5 8 4\nl 1 7\n`;
     expect(de_novo.medidas).toEqual([2, 2, 2]);
   });
 
+  it("qualidade máxima: o STL leva todos os triângulos e o 3MF guarda cada coordenada exata (float32)", async () => {
+    const sopa = deObjeto(new THREE.Mesh(new THREE.SphereGeometry(37.123456, 64, 48))).sopa;
+    const entrada = sopa.length / 9;
+    const stl = await converter(sopa, { unidade: "mm", giro: SEM_GIRO, saida: "stl", titulo: "esfera" });
+    expect(stl.triangulos).toBe(entrada);
+    const { posicoes } = lerStl(stl.bytes);
+    expect(Array.from(posicoes)).toEqual(Array.from(prepararParaMesa(sopa, "mm", SEM_GIRO).posicoes));
+
+    const tresmf = await converter(sopa, { unidade: "mm", giro: SEM_GIRO, saida: "3mf", titulo: "esfera" });
+    const z = tresmf.bytes;
+    const d = new DataView(z.buffer, z.byteOffset, z.byteLength);
+    let o = 0, modelo = "";
+    while (d.getUint32(o, true) === 0x04034b50) {
+      const c = d.getUint32(o + 18, true), n = d.getUint16(o + 26, true);
+      const nome = new TextDecoder().decode(z.subarray(o + 30, o + 30 + n));
+      if (nome === "3D/3dmodel.model") modelo = inflateRawSync(z.subarray(o + 30 + n, o + 30 + n + c)).toString("utf8");
+      o += 30 + n + c;
+    }
+    const lidos = [...modelo.matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"/g)].flatMap((m) => [+m[1], +m[2], +m[3]]);
+    const soldado = soldar(prepararParaMesa(sopa, "mm", SEM_GIRO).posicoes);
+    expect(Float32Array.from(lidos)).toEqual(soldado.posicoes);         // cada número volta ao mesmo float32
+    expect(tresmf.triangulos).toBe(soldado.indices.length / 3);
+  });
+
   it("STL em texto (ASCII) também entra", async () => {
     const ascii = `solid t\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 10 0 0\nvertex 0 10 0\nendloop\nendfacet\nendsolid t\n`;
     const lido = await lerModelo({ nome: "t.stl", dados: enc(ascii) }, []);

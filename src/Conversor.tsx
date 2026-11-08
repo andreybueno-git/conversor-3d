@@ -32,9 +32,10 @@ interface Item {
 }
 
 const UNIDADES: Unidade[] = ["mm", "cm", "m", "pol"];
+/* STL primeiro e escolhido de saída: é o que todo fatiador e toda impressora aceitam */
 const SAIDAS: { id: Saida; nome: string; nota: string }[] = [
-  { id: "3mf", nome: "3MF", nota: "moderno, em mm, menor" },
   { id: "stl", nome: "STL", nota: "abre em qualquer fatiador" },
+  { id: "3mf", nome: "3MF", nota: "moderno, em mm, menor" },
 ];
 
 let proximoId = 1;
@@ -56,7 +57,7 @@ const respirar = () => new Promise<void>((r) => requestAnimationFrame(() => setT
 export function Conversor() {
   const [itens, setItens] = useState<Item[]>([]);
   const [selecionado, setSelecionado] = useState<number | null>(null);
-  const [saida, setSaida] = useState<Saida>("3mf");
+  const [saida, setSaida] = useState<Saida>("stl");
   const [arrastando, setArrastando] = useState(false);
   const [ocupado, setOcupado] = useState<null | "um" | "todos">(null);
   const [aviso, setAviso] = useState("");
@@ -337,6 +338,15 @@ export function Conversor() {
               </div>
             </div>
 
+            {atual?.estado === "pronto" && (
+              <p className="cv-qualidade">
+                <span className="cv-qualidade-selo" aria-hidden="true">✓</span>
+                <span>
+                  <b>Qualidade máxima</b> — os {formatarInteiro((atual.sopa?.length ?? 0) / 9)} triângulos do arquivo, sem reduzir nem
+                  arredondar{saida === "stl" ? " (STL binário, precisão total)" : " (3MF com a precisão total do arquivo)"}.
+                </span>
+              </p>
+            )}
             <div className="cv-acoes">
               {atual?.estado === "pronto" && (
                 <button type="button" className="cv-botao" disabled={ocupado !== null} onClick={() => baixarUm(atual)}>
