@@ -4,7 +4,7 @@ import { build } from "esbuild";
 import { readFileSync, writeFileSync } from "node:fs";
 const r = await build({
   entryPoints: ["src/main.tsx"], bundle: true, minify: true, format: "iife", target: "es2020",
-  jsx: "automatic", write: false, outdir: "dist", legalComments: "none",
+  jsx: "automatic", write: false, outdir: "dist", legalComments: "eof",
   define: { "process.env.NODE_ENV": '"production"' },
 });
 const js = r.outputFiles.find((f) => f.path.endsWith(".js")).text.replace(/<\/script/gi, "<\\/script");

@@ -30,6 +30,8 @@ export interface Formato {
 
 /** Os formatos de ENTRADA, na ordem em que a página os mostra. */
 export const FORMATOS: readonly Formato[] = [
+  /* o .skp chega pela OpenSKP (ler.ts) em metros e com Y para cima — o mesmo caminho do glTF */
+  { ext: "skp", nome: "SKP", origem: "SketchUp (2013 a 2026)", unidade: "m", cima: "y" },
   { ext: "stl", nome: "STL", origem: "impressão 3D", unidade: "mm", cima: "z" },
   { ext: "obj", nome: "OBJ", origem: "Blender, Maya, Cinema 4D", unidade: "mm", cima: "y" },
   { ext: "3mf", nome: "3MF", origem: "Bambu Studio, PrusaSlicer, Cura", unidade: "mm", cima: "z" },
@@ -56,7 +58,6 @@ export const COMPANHEIROS: ReadonlySet<string> = new Set(["bin", "mtl", "png", "
  * com o caminho que funciona. É o que a tela diz em vez de "formato inválido".
  */
 export const SEM_LEITOR: Readonly<Record<string, string>> = {
-  skp: "O .skp do SketchUp é um formato fechado: só o SketchUp o abre. Sem SketchUp instalado: entre em app.sketchup.com (grátis, com conta Google ou Trimble), abra o .skp pelo ícone de pasta e depois use pasta › Exportar › STL. Com o SketchUp Pro: Arquivo › Exportar › Modelo 3D › STL, DAE ou OBJ. Depois solte o arquivo exportado aqui.",
   step: "STEP é um sólido de CAD, não uma malha. Exporte como STL ou 3MF no seu CAD (Fusion, SolidWorks, Onshape, FreeCAD).",
   stp: "STEP é um sólido de CAD, não uma malha. Exporte como STL ou 3MF no seu CAD (Fusion, SolidWorks, Onshape, FreeCAD).",
   iges: "IGES é um sólido de CAD, não uma malha. Exporte como STL ou 3MF no seu CAD.",
@@ -81,7 +82,10 @@ export function formatoDe(nome: string): Formato | null {
 }
 
 /** O que o `accept` do campo de arquivo diz: os modelos e os companheiros. */
-export const ACEITA = [...FORMATOS.map((f) => `.${f.ext}`), ".bin", ".skp"].join(",");
+export const ACEITA = [...FORMATOS.map((f) => `.${f.ext}`), ".bin"].join(",");
+
+/** Quando um .skp não abre aqui: o caminho pelo próprio SketchUp, grátis no navegador. */
+export const SKP_PLANO_B = "Se não abrir, dá para exportar pelo próprio SketchUp: entre em app.sketchup.com (grátis, com conta Google), abra o .skp pelo ícone de pasta e use pasta › Exportar › STL (Exportar, não Baixar). Depois solte o STL aqui.";
 
 /** O teto do arquivo: acima disto a aba de um celular cai antes de terminar. */
 export const MAX_BYTES = 300 * 1024 * 1024;

@@ -86,7 +86,7 @@ test.describe("o conversor de arquivos 3D", () => {
     /* com mouse, "solte"; no celular, "toque" */
     const toque = test.info().project.name === "celular";
     await expect(page.getByText(toque ? "Toque aqui para escolher seu arquivo" : "Solte seus arquivos 3D aqui")).toBeVisible();
-    await expect(page.getByText("E o SketchUp (.skp)?")).toBeVisible();
+    await expect(page.getByText("Tem um arquivo do SketchUp (.skp)?")).toBeVisible();
   });
 
   test("OBJ: prévia, medidas, unidade, giro e o 3MF e o STL baixados", async ({ page }) => {
@@ -174,21 +174,18 @@ test.describe("o conversor de arquivos 3D", () => {
 });
 
 test.describe("o tutorial", () => {
-  test("abre sozinho na primeira visita e leva quem tem .skp pelo SketchUp", async ({ page }) => {
+  test("abre sozinho na primeira visita e diz a quem tem .skp que pode mandar direto", async ({ page }) => {
     await page.goto("/");
     const quadro = page.getByRole("dialog");
     await expect(quadro).toBeVisible();
     await expect(quadro).toContainText("que arquivo você tem?");
     await quadro.getByRole("button", { name: /Um arquivo do SketchUp/ }).click();
-    await expect(quadro).toContainText("Passo 1 de 6");
-    await expect(quadro.getByRole("link", { name: /Abrir o SketchUp grátis/ })).toHaveAttribute("href", "https://app.sketchup.com");
+    await expect(quadro).toContainText("Passo 1 de 4");
+    await expect(quadro).toContainText("este conversor lê o .skp");
     await quadro.getByRole("button", { name: "Próximo →" }).click();
-    await quadro.getByRole("button", { name: "Próximo →" }).click();
-    await expect(quadro).toContainText("é Exportar, não Baixar");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowRight");
-    await expect(quadro).toContainText("Passo 6 de 6");
+    await expect(quadro).toContainText("Passo 4 de 4");
     await expect(quadro).toContainText("botão grande já baixa em STL");
     /* o último botão abre o seletor de arquivos e fecha o quadro */
     const [seletor] = await Promise.all([page.waitForEvent("filechooser"), quadro.getByRole("button", { name: "Escolher meu arquivo" }).click()]);
@@ -239,5 +236,26 @@ test.describe("no celular", () => {
 
     await page.locator(".cv-botao-stl").scrollIntoViewIfNeeded();
     await expect(barra).toHaveAttribute("data-mostrar", "nao");
+  });
+});
+
+test.describe("SketchUp (.skp) direto", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("conversor3d:tutorial-visto", "1"));
+  });
+
+  test("a cadeira e a mesa do SketchUp viram STL, sem rede e sem passar por outro site", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    const v = vigiar(page);
+    await page.locator("input[type=file]").setInputFiles([new URL("./skp/chair_and_table.skp", import.meta.url).pathname]);
+    await expect(page.locator(".cv-medidas")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(".cv-fila li").first()).toHaveAttribute("data-estado", "pronto");
+    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em STL/ }).first().click()]);
+    expect(baixado.suggestedFilename()).toBe("chair_and_table.stl");
+    const stl = readFileSync((await baixado.path())!);
+    expect(stl.length).toBe(84 + 50 * stl.readUInt32LE(80));
+    expect(stl.readUInt32LE(80)).toBeGreaterThan(10);
+    expect(v.pedidos, "nada saiu para a rede").toEqual([]);
   });
 });

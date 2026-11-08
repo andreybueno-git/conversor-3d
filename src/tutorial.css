@@ -97,6 +97,13 @@
   border-radius: 0.35rem 0.9rem 0.35rem 0.35rem; background: #fff; box-shadow: 0 10px 20px -10px rgb(0 0 0 / 40%); color: #8f3f1f; font-size: 0.7rem; font-weight: 800; z-index: 1;
 }
 
+.tt-virar { display: flex; align-items: center; gap: 1rem; }
+.tt-arquivo-plano {
+  display: grid; place-items: end center; width: 3.6rem; height: 4.4rem; padding-bottom: 0.5rem; border-radius: 0.4rem 1.1rem 0.4rem 0.4rem;
+  background: #fff; box-shadow: 0 12px 24px -12px rgb(0 0 0 / 40%); color: #6e6e73; font-weight: 800; font-size: 0.85rem;
+}
+.tt-arquivo-stl { background: #b4552d; color: #fff; }
+.tt-seta { color: #b4552d; font-size: 1.8rem; font-weight: 800; }
 .tt-peca { display: grid; justify-items: center; gap: 1.1rem; }
 .tt-cubo { --l: 52px; position: relative; display: block; width: var(--l); height: var(--l); transform-style: preserve-3d; transform: rotateX(-24deg) rotateY(38deg); }
 .tt-cubo i { position: absolute; inset: 0; border: 2px solid #b4552d; border-radius: 5px; background: linear-gradient(135deg, rgb(255 255 255 / 85%), rgb(240 190 165 / 80%)); }
@@ -122,7 +129,8 @@
   .tt-cubo { animation: tt-girar 6s linear infinite; }
   .tt-botao { animation: tt-pulsar 1.8s ease-in-out infinite; }
   .tt-menu li[data-luz="sim"] { animation: tt-brilho 1.8s ease-in-out infinite; }
-  .tt-casinha { animation: tt-subir 600ms 200ms both; }
+  .tt-seta { animation: tt-empurrar 1.4s ease-in-out infinite; }
+  .tt-arquivo-stl { animation: tt-pulsar 1.4s ease-in-out infinite; }
 }
 @keyframes tt-aparecer { from { opacity: 0; } }
 @keyframes tt-subir { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
@@ -132,4 +140,5 @@
 @keyframes tt-receber { 0%, 50% { border-color: #b4552d; background: rgb(255 255 255 / 70%); } 60%, 80% { border-color: #2f7a4f; background: #eef6f1; } 100% { border-color: #b4552d; } }
 @keyframes tt-girar { from { transform: rotateX(-24deg) rotateY(0); } to { transform: rotateX(-24deg) rotateY(360deg); } }
 @keyframes tt-pulsar { 50% { transform: scale(1.05); } }
+@keyframes tt-empurrar { 50% { transform: translateX(6px); } }
 @keyframes tt-brilho { 50% { box-shadow: 0 0 0 4px rgb(180 85 45 / 25%); } }

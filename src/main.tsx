@@ -44,7 +44,7 @@ function Pagina() {
           Converta seu arquivo 3D para <span className="cv-destaque">STL</span>
         </h1>
         <p className="cv-sub">
-          OBJ, FBX, glTF, DAE do SketchUp, 3DS, PLY e mais viram STL pronto para imprimir, em qualidade máxima — com prévia 3D e
+          SketchUp (.skp), OBJ, FBX, glTF, DAE, 3DS, PLY e mais viram STL pronto para imprimir, em qualidade máxima — com prévia 3D e
           medidas em milímetro. Funciona no celular, e o arquivo não sai do seu aparelho.
         </p>
         <BotaoTutorial />
@@ -75,23 +75,22 @@ function Pagina() {
 
       <section className="cv-secao cv-skp" aria-labelledby="cv-sketchup">
         <div>
-          <h2 id="cv-sketchup" className="cv-h2">E o SketchUp (.skp)?</h2>
+          <h2 id="cv-sketchup" className="cv-h2">Tem um arquivo do SketchUp (.skp)?</h2>
           <p>
-            O <code>.skp</code> é um formato fechado: só o próprio SketchUp o lê por inteiro. Mas ele exporta em dois cliques, e daí
-            a conversão é aqui:
+            Pode mandar direto: o conversor lê o <code>.skp</code> do SketchUp 2013 até os de hoje — com componentes e grupos — e
+            entrega o STL aqui mesmo, sem instalar nada e sem passar por outro site.
           </p>
         </div>
         <ol className="cv-skp-passos">
-          <li>
-            <b>Não tem o SketchUp?</b> Abra o <a href="https://app.sketchup.com" target="_blank" rel="noopener">SketchUp para Web</a>{" "}
-            (grátis, entra com a conta Google) e, no ícone de pasta, abra o seu <code>.skp</code>.
-          </li>
-          <li>
-            No ícone de pasta de novo: <i>Exportar</i> › <i>STL</i> — atenção, é <i>Exportar</i>, não <i>Baixar</i> (o Baixar só devolve o .skp).
-            No SketchUp Pro: <i>Arquivo</i> › <i>Exportar</i> › <i>Modelo 3D</i> › <i>STL</i>, <i>DAE</i> ou <i>OBJ</i>.
-          </li>
-          <li>Solte o arquivo exportado aqui para conferir as medidas, acertar a unidade e baixar em 3MF ou STL.</li>
+          <li>Toque na caixa lá em cima e escolha o seu <code>.skp</code> (ou arraste para a página, no computador).</li>
+          <li>Confira a peça e as medidas na prévia. Se o tamanho estiver estranho, troque a unidade.</li>
+          <li>Toque em <b>Baixar em STL</b>. Pronto.</li>
         </ol>
+        <p className="cv-skp-plano-b">
+          <b>Se algum .skp não abrir</b> (arquivo danificado ou de uma versão muito nova): abra no{" "}
+          <a href="https://app.sketchup.com" target="_blank" rel="noopener">SketchUp grátis no navegador</a>, ícone de pasta ›{" "}
+          <i>Exportar</i> › <i>STL</i> (é <i>Exportar</i>, não <i>Baixar</i>) e solte o STL aqui.
+        </p>
       </section>
 
       <section className="cv-secao" aria-labelledby="cv-perguntas">
@@ -109,7 +108,9 @@ function Pagina() {
       <Tutorial />
 
       <footer className="cv-rodape">
-        Conversor 3D · feito com <a href="https://threejs.org">three.js</a> · o seu arquivo nunca sai do seu aparelho
+        Conversor 3D · feito com <a href="https://threejs.org">three.js</a> e{" "}
+        <a href="https://github.com/iamahsanmehmood/openskp">OpenSKP</a> · o seu arquivo nunca sai do seu aparelho ·{" "}
+        <a href="LICENCAS.txt">licenças</a>
       </footer>
     </main>
   );

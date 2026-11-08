@@ -380,3 +380,6 @@ body {
   .cv-pagina:has(.cv-barra-celular) .cv-rodape { padding-bottom: 6.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { .cv-barra-celular { transition: none; } }
+
+.cv-skp-plano-b { grid-column: 1 / -1; margin: 0; padding: 0.9rem 1rem; border-radius: 1rem; background: #fff; color: #4a4a4f; font-size: 0.92rem; line-height: 1.55; }
+.cv-skp-plano-b a { color: var(--cv-acao-escura); font-weight: 700; }

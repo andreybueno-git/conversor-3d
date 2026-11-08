@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
-  ACEITA, FORMATOS, SEM_LEITOR, extensao, formatarBytes, formatarInteiro, formatarMm, formatoDe, nomeDeSaida, nomesUnicos,
+  ACEITA, FORMATOS, SEM_LEITOR, SKP_PLANO_B, extensao, formatarBytes, formatarInteiro, formatarMm, formatoDe, nomeDeSaida, nomesUnicos,
 } from "./formatos";
 import { converter } from "./gravar";
 import { ErroDoGltf, lerGlb, nomeDoUri, normalizarGltf } from "./gltf";
@@ -58,7 +59,8 @@ describe("formatos", () => {
     expect(extensao(".bashrc")).toBe("");
     expect(extensao("semponto")).toBe("");
     expect(formatoDe("casa.DAE")?.nome).toBe("DAE");
-    expect(formatoDe("casa.skp")).toBeNull();
+    expect(formatoDe("casa.SKP")?.unidade).toBe("m");                 // o .skp entra (OpenSKP), em metros e Y para cima
+    expect(formatoDe("casa.step")).toBeNull();
   });
 
   it("toda extensão aparece uma vez, e o campo de arquivo aceita todas", () => {
@@ -68,8 +70,10 @@ describe("formatos", () => {
     expect(ACEITA).toContain(".bin");
   });
 
-  it("o SketchUp tem o caminho escrito, não um 'formato inválido'", () => {
-    expect(SEM_LEITOR.skp).toMatch(/Exportar/);
+  it("o .skp que não abrir tem o plano B escrito; o STEP tem o caminho do CAD", () => {
+    expect(SKP_PLANO_B).toMatch(/Exportar, não Baixar/);
+    expect(SEM_LEITOR.step).toMatch(/STL ou 3MF/);
+    expect(SEM_LEITOR.skp).toBeUndefined();
   });
 
   it("o nome de saída só tem o que qualquer disco (e o ZIP) aceita", () => {
@@ -348,5 +352,39 @@ f 1 4 3 2\nf 5 6 7 8\nf 1 2 6 5\nf 3 4 8 7\nf 2 3 7 6\nf 1 5 8 4\nl 1 7\n`;
     const a = await converter(cubo(), { unidade: "mm", giro: SEM_GIRO, saida: "stl", titulo: "a" });
     const zip = gravarZip([{ nome: "a.stl", dados: a.bytes }, { nome: "a-2.stl", dados: a.bytes }]);
     expect([...lerZip(zip).keys()]).toEqual(["a.stl", "a-2.stl"]);
+  });
+});
+
+describe("SketchUp (.skp)", () => {
+  const ler = (nome: string) => {
+    const b = readFileSync(new URL(`../e2e/skp/${nome}`, import.meta.url));
+    return { nome, dados: b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer };
+  };
+
+  for (const nome of ["chair_and_table.skp", "nesting_2013.skp", "nesting_2021.skp", "capilla_quiroz_v17.skp", "arcs_2021.skp", "SU_File.skp"]) {
+    it(`${nome}: vira STL com faces, uma vez cada (sem a cópia invertida), em pé na mesa`, async () => {
+      const lido = await lerModelo(ler(nome), []);
+      expect(lido.sopa.length / 9).toBeGreaterThan(0);
+      const stl = await converter(lido.sopa, { unidade: "m", giro: Y_PARA_Z, saida: "stl", titulo: nome });
+      expect(stl.bytes.length).toBe(84 + 50 * (lido.sopa.length / 9));
+      expect(Math.min(...stl.medidas)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...stl.medidas)).toBeGreaterThan(1);              // nada de grão: as medidas são de peça
+
+      /* cada triângulo uma vez: nenhum par de triângulos com os mesmos três cantos */
+      const chaves = new Set<string>();
+      let repetidos = 0;
+      for (let t = 0; t < lido.sopa.length; t += 9) {
+        const cantos = [0, 3, 6].map((k) => `${lido.sopa[t + k]},${lido.sopa[t + k + 1]},${lido.sopa[t + k + 2]}`).sort().join("|");
+        if (chaves.has(cantos)) repetidos++;
+        chaves.add(cantos);
+      }
+      expect(repetidos).toBe(0);
+      /* o registro para quem ler a saída do teste: tamanho e quantidade de cada modelo */
+      console.info(`${nome}: ${lido.sopa.length / 9} triângulos, ${stl.medidas.map((m) => m.toFixed(0)).join(" × ")} mm`);
+    });
+  }
+
+  it("um .skp que não é .skp vira uma frase com o plano B, não o erro da biblioteca", async () => {
+    await expect(lerModelo({ nome: "falso.skp", dados: enc("isto não é sketchup") }, [])).rejects.toThrow(/Exportar, não Baixar/);
   });
 });

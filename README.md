@@ -1,12 +1,17 @@
-# Conversor 3D → STL e 3MF
+# Conversor 3D → STL
 
-Página única que converte arquivos 3D para **STL** ou **3MF**, prontos para o
-fatiador — **tudo no navegador**: o arquivo não sobe para servidor nenhum.
+Página única que converte arquivos 3D — **inclusive o `.skp` do SketchUp** —
+para **STL** (e 3MF, se preferir), prontos para o fatiador. **Tudo no
+navegador, inclusive no celular**: o arquivo não sobe para servidor nenhum.
 
-**Entram:** STL, OBJ, 3MF, PLY, GLB, glTF (+ `.bin`), FBX, DAE (o que o
-SketchUp exporta), KMZ, 3DS, AMF, VRML (`.wrl`), USDZ e OFF.
-O `.skp` do SketchUp é um formato fechado: a página explica como exportar
-(SketchUp para Web: *Baixar › STL*; Pro: *Exportar › Modelo 3D › DAE/OBJ*).
+**Entram:** SKP (SketchUp 2013 até os de hoje), STL, OBJ, 3MF, PLY, GLB, glTF
+(+ `.bin`), FBX, DAE, KMZ, 3DS, AMF, VRML (`.wrl`), USDZ e OFF.
+
+O `.skp` é lido pela [OpenSKP](https://github.com/iamahsanmehmood/openskp)
+(MIT, engenharia reversa do formato; não é da Trimble/SketchUp), com cada face
+uma vez só (`frontSideOnly`: sem a cópia invertida que estragaria o STL). Se
+algum `.skp` não abrir, a tela mostra o plano B: SketchUp grátis no navegador ›
+*Exportar* › *STL* (é *Exportar*, não *Baixar*).
 
 **Como funciona:** solte um ou vários arquivos em qualquer lugar da página →
 confira na prévia 3D (gira com o dedo, mostra largura × profundidade × altura
@@ -32,9 +37,9 @@ branch `main`, pasta `/ (root)`. O link fica
 ## Mexer no código
 
 ```bash
-npm install
-npm run build     # gera o index.html da raiz — faça commit dele
-npm test          # 29 testes da malha, dos formatos e da gravação
+npm install --legacy-peer-deps   # o npm 10/11 tropeça nos "peers" opcionais do vitest sem isso
+npm run build     # gera o index.html e o LICENCAS.txt da raiz — faça commit dos dois
+npm test          # 36 testes: malha, formatos, gravação e 6 .skp reais (2013 a 2021)
 npx playwright install chromium && npm run e2e   # a página num navegador de verdade
 ```
 
@@ -45,7 +50,7 @@ npx playwright install chromium && npm run e2e   # a página num navegador de ve
 | `src/Conversor.tsx` | a tela do conversor: fila, véu de arrastar, ajustes, downloads |
 | `src/conversor.css` | o visual |
 | `src/formatos.ts` | os formatos aceitos, tetos (300 MB, 5 milhões de triângulos), nomes de saída |
-| `src/ler.ts` | os leitores do three.js, um por formato; textura nunca é buscada |
+| `src/ler.ts` | os leitores do three.js, um por formato, e o do `.skp` (OpenSKP); textura nunca é buscada |
 | `src/gltf.ts` | glTF/GLB remontado num GLB só com a forma (junta o `.bin`, decodifica `data:`) |
 | `src/off.ts` | o leitor de OFF |
 | `src/malha.ts` | giro em passos de 90°, escala para mm, peça centrada e pousada em z = 0, solda dos vértices |
@@ -55,3 +60,10 @@ npx playwright install chromium && npm run e2e   # a página num navegador de ve
 Limites conhecidos: glTF comprimido com Draco/meshopt e `.3dm` do Rhino não
 abrem (pedem WebAssembly/leitores externos); cores e texturas não vão para o
 STL/3MF (só a forma).
+
+## Licenças
+
+O `index.html` leva dentro bibliotecas de terceiros (OpenSKP, three.js, React,
+fflate, earcut, flatbuffers, chevrotain). Os avisos de cada uma estão em
+[`LICENCAS.txt`](LICENCAS.txt), gerado pelo `npm run build` e linkado no rodapé.
+Os `.skp` de `e2e/skp/` vêm do repositório da OpenSKP (MIT).

@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 /* O TUTORIAL: abre sozinho na PRIMEIRA visita (e pelo botão "Como usar?" a
    qualquer hora). Primeiro pergunta que arquivo a pessoa tem: quem tem um
-   .skp do SketchUp passa antes pelo caminho de exportar (é onde quase todo
-   mundo trava: o botão certo é Exportar, não Baixar); depois, os três passos
-   do conversor. Esc fecha, setas andam, o foco fica dentro do quadro. */
+   .skp do SketchUp fica sabendo que pode mandá-lo direto; depois, os três
+   passos do conversor. Esc fecha, setas andam, o foco fica dentro do quadro. */
 
 const CHAVE = "conversor3d:tutorial-visto";
 export const ABRIR_TUTORIAL = "conversor3d:abrir-tutorial";
@@ -19,43 +18,19 @@ interface Passo {
 
 const PASSOS_SKP: Passo[] = [
   {
-    titulo: "O .skp passa primeiro pelo SketchUp",
+    titulo: "Pode mandar o .skp direto",
     texto: (
       <>
-        O <b>.skp</b> é um formato fechado: só o SketchUp abre. Mas ele tem uma versão <b>grátis no navegador</b>, sem instalar nada.
-        Abra numa aba nova e entre com a sua conta Google:
-        <a className="tt-link" href="https://app.sketchup.com" target="_blank" rel="noopener">Abrir o SketchUp grátis ↗</a>
+        Não precisa abrir o SketchUp nem outro site: <b>este conversor lê o .skp</b> (do SketchUp 2013 até os de hoje) e transforma
+        em STL aqui mesmo, no seu celular ou computador.
+        <span className="tt-alerta">Se algum arquivo não abrir, a própria página mostra o caminho alternativo.</span>
       </>
     ),
     ilustracao: (
-      <div className="tt-navegador" aria-hidden="true">
-        <div className="tt-barra"><i /><i /><i /><span>app.sketchup.com</span></div>
-        <div className="tt-tela"><span className="tt-casinha" /></div>
-      </div>
-    ),
-  },
-  {
-    titulo: "Abra o seu arquivo lá",
-    texto: <>No SketchUp, clique no <b>ícone de pasta</b> (no canto de cima) › <b>Abrir</b> e escolha o seu <b>.skp</b>.</>,
-    ilustracao: (
-      <div className="tt-menu" aria-hidden="true">
-        <span className="tt-pasta" />
-        <ul><li data-luz="sim">Abrir…</li><li>Salvar</li><li>Baixar</li><li>Exportar</li></ul>
-      </div>
-    ),
-  },
-  {
-    titulo: "Exporte em STL",
-    texto: (
-      <>
-        No ícone de pasta de novo: <b>Exportar › STL</b>.
-        <span className="tt-alerta">Atenção: é <b>Exportar</b>, não <b>Baixar</b> — o Baixar só devolve o próprio .skp.</span>
-      </>
-    ),
-    ilustracao: (
-      <div className="tt-menu" aria-hidden="true">
-        <span className="tt-pasta" />
-        <ul><li>Abrir…</li><li>Salvar</li><li data-risco="sim">Baixar</li><li data-luz="sim">Exportar › STL</li></ul>
+      <div className="tt-virar" aria-hidden="true">
+        <span className="tt-arquivo-plano">.skp</span>
+        <span className="tt-seta">→</span>
+        <span className="tt-arquivo-plano tt-arquivo-stl">.stl</span>
       </div>
     ),
   },

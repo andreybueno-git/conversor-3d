@@ -5,18 +5,20 @@
   "description": "Conversor de arquivos 3D (OBJ, FBX, glTF, DAE, 3DS, PLY, AMF, VRML, USDZ, OFF, 3MF, STL) para STL e 3MF, no navegador.",
   "type": "module",
   "scripts": {
-    "build": "node build.mjs",
+    "build": "node build.mjs && node licencas.mjs",
     "test": "vitest run",
     "e2e": "playwright test",
     "tipos": "tsc --noEmit"
   },
   "dependencies": {
+    "openskp": "1.5.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "three": "0.185.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "0.185.0",
