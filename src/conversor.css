@@ -355,3 +355,28 @@ body {
 }
 .cv-botao-3mf u { color: var(--cv-acao-escura); font-weight: 700; text-underline-offset: 0.2em; }
 .cv-botao-3mf:disabled { cursor: progress; opacity: 0.7; }
+
+/* ── celular ───────────────────────────────────────────────────────── */
+/* o texto da caixa: "solte" com mouse, "toque" no celular */
+.cv-so-toque { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .cv-so-mouse { display: none; }
+  .cv-so-toque { display: block; }
+}
+/* o aviso vazio não guarda lugar no quadro de ajustes */
+.cv-painel .cv-aviso:empty { margin-top: -1.35rem; min-height: 0; }
+
+/* a barra presa embaixo da tela, com o botão de baixar (só em tela estreita) */
+.cv-barra-celular { display: none; }
+@media (max-width: 899px) {
+  .cv-barra-celular {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: block;
+    padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+    background: rgb(255 255 255 / 88%); backdrop-filter: blur(14px) saturate(1.2); border-top: 1px solid var(--cv-fio);
+    transform: translateY(110%); transition: transform 260ms var(--ve-saida);
+  }
+  .cv-barra-celular[data-mostrar="sim"] { transform: none; }
+  .cv-barra-celular .cv-botao { width: 100%; min-height: 58px; }
+  .cv-pagina:has(.cv-barra-celular) .cv-rodape { padding-bottom: 6.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .cv-barra-celular { transition: none; } }

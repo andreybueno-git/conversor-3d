@@ -62,6 +62,10 @@ export function Conversor() {
   const palco = useRef<HTMLDivElement>(null);
   const visor = useRef<Visor | null>(null);
   const fila = useRef<Promise<void>>(Promise.resolve());
+  /* no celular, o botão de baixar fica duas telas abaixo da prévia: uma barra presa
+     embaixo da tela o repete enquanto ele não está à vista */
+  const botaoStl = useRef<HTMLButtonElement>(null);
+  const [botaoAVista, setBotaoAVista] = useState(true);
 
   const mudar = useCallback((id: number, m: Partial<Item>) => {
     setItens((lista) => lista.map((i) => (i.id === id ? { ...i, ...m } : i)));
@@ -178,6 +182,15 @@ export function Conversor() {
     visor.current.mostrar(posicoes, medidas);
   }, [atual, com3d]);
 
+  const pronto = atual?.estado === "pronto";
+  useEffect(() => {
+    const alvo = botaoStl.current;
+    if (!pronto || !alvo || typeof IntersectionObserver === "undefined") return;
+    const observador = new IntersectionObserver(([e]) => setBotaoAVista(e.isIntersecting), { threshold: 0.6 });
+    observador.observe(alvo);
+    return () => observador.disconnect();
+  }, [pronto]);
+
   /* ── baixar ── */
   /* O BOTÃO PRINCIPAL É SEMPRE STL (o que toda impressora e todo fatiador aceitam);
      o 3MF é um botão menor, opcional, embaixo. Sem seletor: ninguém baixa o formato errado. */
@@ -255,8 +268,11 @@ export function Conversor() {
       {vazio ? (
         <label htmlFor={campoId} className="cv-soltar">
           <span className="cv-cubo" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
-          <span className="cv-soltar-titulo">Solte seus arquivos 3D aqui</span>
-          <span className="cv-soltar-sub">ou <span className="cv-link">escolha no aparelho</span> · vários de uma vez</span>
+          {/* com mouse: arrastar; no celular (toque): tocar — o texto certo para cada um */}
+          <span className="cv-soltar-titulo cv-so-mouse">Solte seus arquivos 3D aqui</span>
+          <span className="cv-soltar-sub cv-so-mouse">ou <span className="cv-link">escolha no aparelho</span> · vários de uma vez</span>
+          <span className="cv-soltar-titulo cv-so-toque">Toque aqui para escolher seu arquivo</span>
+          <span className="cv-soltar-sub cv-so-toque">dos Arquivos, do Drive ou baixado do WhatsApp</span>
           <span className="cv-soltar-pe">
             <span className="cv-cadeado" aria-hidden="true" /> O arquivo não sai do seu aparelho: a conversão é feita aqui, no navegador.
           </span>
@@ -287,7 +303,7 @@ export function Conversor() {
                 <span><b>{formatarMm(medidas[2])}</b><small>altura</small></span>
               </div>
             )}
-            {atual?.estado === "pronto" && <p className="cv-dica-gesto">Arraste para girar · pinça ou roda para aproximar</p>}
+            {atual?.estado === "pronto" && <p className="cv-dica-gesto"><span className="cv-so-mouse">Arraste para girar · roda do mouse para aproximar</span><span className="cv-so-toque">Arraste com o dedo para girar · dois dedos para aproximar</span></p>}
           </section>
 
           <section className="cv-painel" aria-label="Ajustes e download">
@@ -335,7 +351,7 @@ export function Conversor() {
             )}
             <div className="cv-acoes">
               {atual?.estado === "pronto" && (
-                <button type="button" className="cv-botao cv-botao-stl" disabled={ocupado !== null} onClick={() => baixarUm(atual, "stl")}>
+                <button ref={botaoStl} type="button" className="cv-botao cv-botao-stl" disabled={ocupado !== null} onClick={() => baixarUm(atual, "stl")}>
                   {ocupado === "stl" ? <><span className="cv-girando" aria-hidden="true" /> Gravando o STL…</> : (
                     <span className="cv-botao-duplo">
                       <b>↓ Baixar em STL</b>
@@ -383,6 +399,16 @@ export function Conversor() {
         </div>
       )}
       {vazio && aviso && <p className="cv-aviso cv-aviso-solto" role="status">{aviso}</p>}
+
+      {pronto && atual && (
+        <div className="cv-barra-celular" data-mostrar={botaoAVista ? "nao" : "sim"} aria-hidden={botaoAVista}>
+          <button type="button" className="cv-botao" tabIndex={botaoAVista ? -1 : 0} disabled={ocupado !== null} onClick={() => baixarUm(atual, "stl")}>
+            {ocupado === "stl" ? <><span className="cv-girando" aria-hidden="true" /> Gravando o STL…</> : (
+              <span className="cv-botao-duplo"><b>↓ Baixar em STL</b><small>{nomeDeSaida(atual.nome, "stl")}</small></span>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

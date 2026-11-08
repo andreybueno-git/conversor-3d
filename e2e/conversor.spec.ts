@@ -82,7 +82,10 @@ test.describe("o conversor de arquivos 3D", () => {
   test("a página abre com o topo, a caixa de soltar e a ajuda do SketchUp", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("STL");
-    await expect(page.getByText("Solte seus arquivos 3D aqui")).toBeVisible();
+    await expect(page.locator(".cv-soltar")).toBeVisible();
+    /* com mouse, "solte"; no celular, "toque" */
+    const toque = test.info().project.name === "celular";
+    await expect(page.getByText(toque ? "Toque aqui para escolher seu arquivo" : "Solte seus arquivos 3D aqui")).toBeVisible();
     await expect(page.getByText("E o SketchUp (.skp)?")).toBeVisible();
   });
 
@@ -211,5 +214,30 @@ test.describe("o tutorial", () => {
     await page.reload();
     await page.waitForTimeout(800);
     await expect(page.getByRole("dialog")).toBeHidden();
+  });
+});
+
+test.describe("no celular", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "celular", "só no celular");
+    await page.addInitScript(() => localStorage.setItem("conversor3d:tutorial-visto", "1"));
+  });
+
+  test("nada sai da largura da tela, e a barra de baixar STL aparece quando o botão está longe", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("input[type=file]").setInputFiles([{ name: "cubo.obj", mimeType: "text/plain", buffer: Buffer.from(CUBO_OBJ) }]);
+    await expect(page.locator(".cv-medidas")).toBeVisible();
+    const larguras = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, tela: window.innerWidth }));
+    expect(larguras.doc).toBeLessThanOrEqual(larguras.tela);
+
+    const barra = page.locator(".cv-barra-celular");
+    await page.locator(".cv-palco").scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(barra).toHaveAttribute("data-mostrar", "sim");
+    const [baixado] = await Promise.all([page.waitForEvent("download"), barra.getByRole("button").click()]);
+    expect(baixado.suggestedFilename()).toBe("cubo.stl");
+
+    await page.locator(".cv-botao-stl").scrollIntoViewIfNeeded();
+    await expect(barra).toHaveAttribute("data-mostrar", "nao");
   });
 });

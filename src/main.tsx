@@ -41,11 +41,11 @@ function Pagina() {
       <header className="cv-topo">
         <p className="cv-selo">Grátis · sem cadastro · sem enviar nada</p>
         <h1 className="cv-titulo">
-          Converta seus arquivos 3D para <span className="cv-destaque">STL</span> e <span className="cv-destaque">3MF</span>
+          Converta seu arquivo 3D para <span className="cv-destaque">STL</span>
         </h1>
         <p className="cv-sub">
-          OBJ, FBX, glTF, DAE do SketchUp, 3DS, PLY e mais — com prévia 3D, medidas em milímetro e a peça já em pé na mesa.
-          Tudo no seu navegador: o arquivo não sai do seu aparelho.
+          OBJ, FBX, glTF, DAE do SketchUp, 3DS, PLY e mais viram STL pronto para imprimir, em qualidade máxima — com prévia 3D e
+          medidas em milímetro. Funciona no celular, e o arquivo não sai do seu aparelho.
         </p>
         <BotaoTutorial />
       </header>
