@@ -32,21 +32,10 @@ export function lerSkp(dados: ArrayBuffer, opcoes: ParseOptions = {}): Lido {
     throw new ErroDeLeitura(faltouMemoria(e) ? pesadoDemais("skp") : SKP_ILEGIVEL);
   }
   try {
-    const prims = cena.glbPrimitives ?? [];
-    const total = prims.reduce((s, p) => s + Math.floor(p.indices.length / 3), 0);
-    if (!total) throw new ErroDeLeitura(`Este .skp não tem nenhuma face (só linhas, textos ou nada). ${SKP_PLANO_B}`);
-    opcoes.onProgress?.({ stage: "triangulos", current: 0, total });
-    const sopa = new Float32Array(total * 9);
-    let o = 0;
-    for (const p of prims) {
-      const n = Math.floor(p.indices.length / 3) * 3;
-      for (let t = 0; t < n; t++) {
-        const i = p.indices[t] * 3;
-        sopa[o++] = p.positions[i]; sopa[o++] = p.positions[i + 1]; sopa[o++] = p.positions[i + 2];
-      }
-    }
-    const partes = prims.length;
-    cena = null;                                  // a cena (o grosso da memória) já pode ir embora
+    /* juntar() é uma função à parte: ao voltar, as primitivas dela (posições e índices)
+       saem do escopo, e zerar `cena` aqui solta mesmo o grosso da memória da leitura */
+    const { sopa, partes } = juntar(cena, opcoes);
+    cena = null;
     const limpa = limparSopa(sopa);
     if (!limpa.length) throw new ErroDeLeitura(`Este .skp não tem nenhuma face com números válidos. ${SKP_PLANO_B}`);
     return { sopa: limpa, partes };
@@ -54,4 +43,22 @@ export function lerSkp(dados: ArrayBuffer, opcoes: ParseOptions = {}): Lido {
     if (e instanceof ErroDeLeitura) throw e;
     throw new ErroDeLeitura(faltouMemoria(e) ? pesadoDemais("skp") : SKP_ILEGIVEL);
   }
+}
+
+/** A sopa de triângulos (x, y, z de cada canto) de todas as primitivas da cena. */
+function juntar(cena: ReturnType<typeof buildScene>, opcoes: ParseOptions): Lido {
+  const prims = cena.glbPrimitives ?? [];
+  const total = prims.reduce((s, p) => s + Math.floor(p.indices.length / 3), 0);
+  if (!total) throw new ErroDeLeitura(`Este .skp não tem nenhuma face (só linhas, textos ou nada). ${SKP_PLANO_B}`);
+  opcoes.onProgress?.({ stage: "triangulos", current: 0, total });
+  const sopa = new Float32Array(total * 9);
+  let o = 0;
+  for (const p of prims) {
+    const n = Math.floor(p.indices.length / 3) * 3;
+    for (let t = 0; t < n; t++) {
+      const i = p.indices[t] * 3;
+      sopa[o++] = p.positions[i]; sopa[o++] = p.positions[i + 1]; sopa[o++] = p.positions[i + 2];
+    }
+  }
+  return { sopa, partes: prims.length };
 }
