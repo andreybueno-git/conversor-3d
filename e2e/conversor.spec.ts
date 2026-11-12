@@ -206,6 +206,13 @@ test.describe("o tutorial", () => {
     await expect(page.getByRole("dialog")).toBeHidden();
   });
 
+  test("o × fecha o tutorial com um clique (a entrada animada não o cobre)", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Fechar o tutorial" }).click({ timeout: 3000 });
+    await expect(page.getByRole("dialog")).toBeHidden();
+  });
+
   test("pular o tutorial também conta como visto", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Pular o tutorial" }).click();
