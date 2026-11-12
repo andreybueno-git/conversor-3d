@@ -8,17 +8,37 @@ export class ErroDeLeitura extends Error {}
 
 /**
  * A memória acabou? É o que o navegador diz quando não consegue reservar um
- * bloco grande: no Chrome, "Array buffer allocation failed" ou "Invalid typed
- * array length" (RangeError); no Safari, "Out of memory"; no Firefox,
- * "allocation size overflow" ou "out of memory" (InternalError). Um RangeError
- * qualquer de outra causa (ex.: pilha estourada) não conta.
+ * bloco grande: no Chrome, "Array buffer allocation failed" (ou "Invalid typed
+ * array length: N" com N enorme); no Safari, "Out of memory"; no Firefox,
+ * "allocation size overflow" ou "out of memory".
+ *
+ * A OpenSKP pega esse erro e o embrulha num SkpParseError ("legacy .skp parse
+ * failed: Array buffer allocation failed", com `cause` = o original): por isso
+ * a frase vale qualquer que seja o nome do erro, e a cadeia de `cause` é
+ * percorrida (até 8 elos, para não girar em círculo).
+ *
+ * Não conta: pilha estourada, nem "Invalid … length" com número negativo,
+ * pequeno ou sem número — isso é contagem lixo de arquivo corrompido, e a
+ * pessoa deve ler "pode estar danificado", não "tente outro navegador".
  */
 export function faltouMemoria(e: unknown): boolean {
-  if (!(e instanceof Error) && !(typeof e === "object" && e !== null && "message" in e)) return false;
-  const { name = "", message = "" } = e as { name?: string; message?: string };
-  if (/out of memory/i.test(message)) return true;
+  let elo: unknown = e;
+  for (let n = 0; n < 8 && typeof elo === "object" && elo !== null; n++) {
+    if (umElo(elo as { name?: unknown; message?: unknown })) return true;
+    elo = (elo as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/** comprimento que só falha por falta de memória: 2^28 elementos (1 GB em Float32) */
+const COMPRIMENTO_DE_MEMORIA = 2 ** 28;
+
+function umElo({ name, message }: { name?: unknown; message?: unknown }): boolean {
+  if (typeof message !== "string") return false;
+  if (/allocation failed|out of memory|allocation size overflow/i.test(message)) return true;
   if (name !== "RangeError" && name !== "InternalError") return false;
-  return /alloc|memory|array buffer|(typed )?array length|buffer size/i.test(message);
+  const m = /invalid (?:typed )?array(?: buffer)? length:\s*(-?\d+)/i.exec(message);
+  return !!m && Number(m[1]) >= COMPRIMENTO_DE_MEMORIA;
 }
 
 /** A frase de quando o .skp não abre por um erro de leitura de verdade. */

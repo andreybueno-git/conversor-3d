@@ -456,7 +456,6 @@ describe("memória que acaba x arquivo ilegível", () => {
   it("reconhece a falta de memória do Chrome, do Safari e do Firefox", () => {
     expect(faltouMemoria(new RangeError("Array buffer allocation failed"))).toBe(true);
     expect(faltouMemoria(new RangeError("Invalid typed array length: 4294967296"))).toBe(true);
-    expect(faltouMemoria(new RangeError("Invalid array length"))).toBe(true);
     expect(faltouMemoria(new RangeError("Out of memory"))).toBe(true);
     expect(faltouMemoria({ name: "InternalError", message: "allocation size overflow" })).toBe(true);
     expect(faltouMemoria(new Error("out of memory"))).toBe(true);
@@ -468,6 +467,20 @@ describe("memória que acaba x arquivo ilegível", () => {
     expect(faltouMemoria(new Error("Unsupported SketchUp version"))).toBe(false);
     expect(faltouMemoria("Array buffer allocation failed")).toBe(false);   // texto solto não é erro
     expect(faltouMemoria(null)).toBe(false);
+    /* comprimento negativo ou pequeno é número lixo de arquivo corrompido, não memória */
+    expect(faltouMemoria(new RangeError("Invalid typed array length: -3"))).toBe(false);
+    expect(faltouMemoria(new RangeError("Invalid typed array length: 12"))).toBe(false);
+    expect(faltouMemoria(new RangeError("Invalid array buffer length"))).toBe(false);
+  });
+
+  it("a falta de memória embrulhada pela OpenSKP (SkpParseError com cause) ainda conta", () => {
+    const embrulhado = Object.assign(new Error("legacy .skp parse failed: Array buffer allocation failed", { cause: new RangeError("Array buffer allocation failed") }), { name: "SkpParseError" });
+    expect(faltouMemoria(embrulhado)).toBe(true);
+    const soNaCausa = Object.assign(new Error("tlv walk failed", { cause: new Error("x", { cause: new RangeError("Array buffer allocation failed") }) }), { name: "SkpParseError" });
+    expect(faltouMemoria(soNaCausa)).toBe(true);
+    const ciclo: { name: string; message: string; cause?: unknown } = { name: "Error", message: "a" };
+    ciclo.cause = ciclo;
+    expect(faltouMemoria(ciclo)).toBe(false);                               // cadeia em círculo não trava
   });
 
   it("a frase de memória diz 'pesado demais' e, no .skp, traz o plano B", () => {
@@ -475,6 +488,26 @@ describe("memória que acaba x arquivo ilegível", () => {
     expect(pesadoDemais("skp")).toContain(SKP_PLANO_B);
     expect(pesadoDemais("obj")).not.toContain("SketchUp");
     expect(pesadoDemais("skp")).not.toMatch(/danificado/);
+  });
+
+  it("a memória que acaba DENTRO da OpenSKP também vira 'pesado demais'", async () => {
+    /* a OpenSKP pega o RangeError e o embrulha num SkpParseError (cause = o RangeError) */
+    const b = readFileSync(new URL("../e2e/skp/chair_and_table.skp", import.meta.url));
+    for (const nome of ["Uint32Array", "Float64Array"] as const) {
+      const original = globalThis[nome];
+      let grandes = 0;
+      const Falha = new Proxy(original, {
+        construct(alvo, args) {
+          if (typeof args[0] === "number" && args[0] > 64 && ++grandes === 4) throw new RangeError("Array buffer allocation failed");
+          return Reflect.construct(alvo, args);
+        },
+      });
+      (globalThis as Record<string, unknown>)[nome] = Falha;
+      let erro: unknown;
+      try { lerSkp(buf(b)); } catch (e) { erro = e; } finally { (globalThis as Record<string, unknown>)[nome] = original; }
+      expect(grandes, `${nome}: a falha aconteceu dentro da leitura`).toBeGreaterThanOrEqual(4);
+      expect((erro as Error)?.message, nome).toMatch(/pesado demais para este navegador/);
+    }
   });
 
   it("o .skp que a memória não aguenta vira 'pesado demais', não 'arquivo danificado'", async () => {
