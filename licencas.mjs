@@ -11,11 +11,21 @@ const pacotes = [
   ["earcut", "triangulação (usado pela OpenSKP)", "node_modules/earcut/LICENSE"],
   ["flatbuffers", "leitura binária (usado pela OpenSKP)", "node_modules/flatbuffers/LICENSE"],
 ];
-let saida = "Conversor 3D — avisos das bibliotecas de terceiros incluídas no index.html\n\n";
+/* confere com o que o build.mjs empacotou de verdade (a página E o leitor de .skp em
+   segundo plano): pacote no index.html sem aviso aqui é erro, não esquecimento */
+const empacotados = JSON.parse(readFileSync("node_modules/.cache/conversor-3d/pacotes.json", "utf8"));
+const listados = new Set(pacotes.map(([nome]) => nome));
+for (const [onde, lista] of Object.entries(empacotados)) {
+  const faltam = lista.filter((p) => !listados.has(p));
+  if (faltam.length) throw new Error(`licencas.mjs: ${faltam.join(", ")} entrou no pacote "${onde}" e não tem aviso aqui. Acrescente na lista.`);
+}
+const noLeitor = new Set(empacotados.leitorSkp);
+let saida = "Conversor 3D — avisos das bibliotecas de terceiros incluídas no index.html\n"
+  + "(as marcadas com * vão também no leitor de .skp que roda em segundo plano, embutido no mesmo index.html)\n\n";
 for (const [nome, uso, ...arquivos] of pacotes) {
   const arquivo = arquivos.find((a) => existsSync(a));
   const pkg = JSON.parse(readFileSync(`node_modules/${nome}/package.json`, "utf8"));
-  saida += `${"=".repeat(78)}\n${nome} ${pkg.version} (${pkg.license}) — ${uso}\n${"=".repeat(78)}\n\n${readFileSync(arquivo, "utf8").trim()}\n\n`;
+  saida += `${"=".repeat(78)}\n${nome}${noLeitor.has(nome) ? "*" : ""} ${pkg.version} (${pkg.license}) — ${uso}\n${"=".repeat(78)}\n\n${readFileSync(arquivo, "utf8").trim()}\n\n`;
 }
 saida += `${"=".repeat(78)}\nchevrotain 9.0.1 (Apache-2.0) — leitor de VRML, embutido no three\n${"=".repeat(78)}\n\n`
   + "Copyright (c) 2021 the original author or authors from the Chevrotain project\nCopyright (c) 2015-2020 SAP SE or an SAP affiliate company.\n\n"

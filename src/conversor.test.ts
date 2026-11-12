@@ -3,8 +3,11 @@ import { inflateRawSync } from "node:zlib";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
-  ACEITA, FORMATOS, SEM_LEITOR, SKP_PLANO_B, extensao, formatarBytes, formatarInteiro, formatarMm, formatoDe, nomeDeSaida, nomesUnicos,
+  ACEITA, FORMATOS, LIMIAR_MODO_PESADO, SEM_LEITOR, SKP_PLANO_B, extensao, formatarBytes, formatarInteiro, formatarMm, formatoDe, modoPesado,
+  nomeDeSaida, nomesUnicos, textoDoAndamento,
 } from "./formatos";
+import { faltouMemoria, pesadoDemais } from "./erros";
+import { lerSkp } from "./skp";
 import { converter, gravarStlEmPartes } from "./gravar";
 import { ErroDoGltf, lerGlb, nomeDoUri, normalizarGltf } from "./gltf";
 import { deObjeto, ErroDeLeitura, lerModelo } from "./ler";
@@ -446,5 +449,74 @@ describe("modo pesado: o STL gravado em partes", () => {
     const { junto, partes } = await emPartes(sopa, "mm", SEM_GIRO, 1_000_000);
     expect(partes.map((p) => p.length)).toEqual([84, 50 * 12]);
     expect(Buffer.from(junto).equals(Buffer.from(sempre.bytes))).toBe(true);
+  });
+});
+
+describe("memória que acaba x arquivo ilegível", () => {
+  it("reconhece a falta de memória do Chrome, do Safari e do Firefox", () => {
+    expect(faltouMemoria(new RangeError("Array buffer allocation failed"))).toBe(true);
+    expect(faltouMemoria(new RangeError("Invalid typed array length: 4294967296"))).toBe(true);
+    expect(faltouMemoria(new RangeError("Invalid array length"))).toBe(true);
+    expect(faltouMemoria(new RangeError("Out of memory"))).toBe(true);
+    expect(faltouMemoria({ name: "InternalError", message: "allocation size overflow" })).toBe(true);
+    expect(faltouMemoria(new Error("out of memory"))).toBe(true);
+  });
+
+  it("não confunde com erro de leitura de verdade", () => {
+    expect(faltouMemoria(new RangeError("Maximum call stack size exceeded"))).toBe(false);
+    expect(faltouMemoria(new RangeError("Offset is outside the bounds of the DataView"))).toBe(false);
+    expect(faltouMemoria(new Error("Unsupported SketchUp version"))).toBe(false);
+    expect(faltouMemoria("Array buffer allocation failed")).toBe(false);   // texto solto não é erro
+    expect(faltouMemoria(null)).toBe(false);
+  });
+
+  it("a frase de memória diz 'pesado demais' e, no .skp, traz o plano B", () => {
+    expect(pesadoDemais("skp")).toMatch(/pesado demais para este navegador/);
+    expect(pesadoDemais("skp")).toContain(SKP_PLANO_B);
+    expect(pesadoDemais("obj")).not.toContain("SketchUp");
+    expect(pesadoDemais("skp")).not.toMatch(/danificado/);
+  });
+
+  it("o .skp que a memória não aguenta vira 'pesado demais', não 'arquivo danificado'", async () => {
+    const original = Float32Array;
+    /* simula a aba sem memória: o primeiro Float32Array grande falha como no Chrome */
+    const Falha = new Proxy(original, {
+      construct(alvo, args) {
+        if (typeof args[0] === "number" && args[0] > 1000) throw new RangeError("Array buffer allocation failed");
+        return Reflect.construct(alvo, args);
+      },
+    });
+    const b = readFileSync(new URL("../e2e/skp/chair_and_table.skp", import.meta.url));
+    globalThis.Float32Array = Falha;
+    try {
+      await expect(lerModelo({ nome: "x.skp", dados: buf(b) }, [])).rejects.toThrow(/pesado demais para este navegador/);
+    } finally {
+      globalThis.Float32Array = original;
+    }
+  });
+});
+
+describe("o andamento da leitura do .skp", () => {
+  it("diz o que a OpenSKP informa, em português", () => {
+    expect(textoDoAndamento({ etapa: "tlv_walk", feito: 501, total: 1000 })).toBe("Lendo o arquivo: 50%");
+    expect(textoDoAndamento({ etapa: "tlv_walk", feito: 5, total: 0 })).toBe("Lendo o arquivo: 0%");
+    expect(textoDoAndamento({ etapa: "build_scene", feito: 60500, total: 60500 })).toBe("Montando o modelo: 60.500 peças");
+    expect(textoDoAndamento({ etapa: "legacy_defs", feito: 1500, total: 1500 })).toBe("Lendo os componentes: 1.500");
+    expect(textoDoAndamento({ etapa: "triangulos", feito: 0, total: 6190607 })).toBe("Juntando os 6.190.607 triângulos");
+    expect(textoDoAndamento({ etapa: "outra", feito: 1, total: 1 })).toBe("Lendo…");
+  });
+
+  it("o leitor do .skp manda o andamento de verdade (e termina juntando os triângulos)", () => {
+    const b = readFileSync(new URL("../e2e/skp/nesting_2021.skp", import.meta.url));
+    const etapas: string[] = [];
+    const lido = lerSkp(buf(b), { onProgress: (p) => etapas.push(p.stage) });
+    expect(etapas[0], "o passeio pelos registros, que a OpenSKP informa").toBe("tlv_walk");
+    expect(etapas.at(-1)).toBe("triangulos");
+    expect(lido.sopa.length % 9).toBe(0);
+  });
+
+  it("o modo pesado começa DEPOIS do limiar: exatamente no limiar ainda é o caminho de sempre", () => {
+    expect(modoPesado(LIMIAR_MODO_PESADO)).toBe(false);
+    expect(modoPesado(LIMIAR_MODO_PESADO + 1)).toBe(true);
   });
 });

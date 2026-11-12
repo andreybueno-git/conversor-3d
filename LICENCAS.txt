@@ -1,7 +1,8 @@
 Conversor 3D — avisos das bibliotecas de terceiros incluídas no index.html
+(as marcadas com * vão também no leitor de .skp que roda em segundo plano, embutido no mesmo index.html)
 
 ==============================================================================
-openskp 1.5.0 (MIT) — leitor de .skp do SketchUp
+openskp* 1.5.0 (MIT) — leitor de .skp do SketchUp
 ==============================================================================
 
 MIT License
@@ -131,7 +132,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-fflate 0.8.3 (MIT) — descompactar (usado pela OpenSKP e pelo three)
+fflate* 0.8.3 (MIT) — descompactar (usado pela OpenSKP e pelo three)
 ==============================================================================
 
 MIT License
@@ -157,7 +158,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-earcut 3.2.4 (ISC) — triangulação (usado pela OpenSKP)
+earcut* 3.2.4 (ISC) — triangulação (usado pela OpenSKP)
 ==============================================================================
 
 ISC License
@@ -177,7 +178,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 
 ==============================================================================
-flatbuffers 25.9.23 (Apache-2.0) — leitura binária (usado pela OpenSKP)
+flatbuffers* 25.9.23 (Apache-2.0) — leitura binária (usado pela OpenSKP)
 ==============================================================================
 
 Apache License

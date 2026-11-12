@@ -1,8 +1,10 @@
 import * as THREE from "three";
-import { SKP_PLANO_B, extensao } from "./formatos";
+import { ErroDeLeitura, faltouMemoria, pesadoDemais } from "./erros";
+import { extensao } from "./formatos";
 import { ErroDoGltf, normalizarGltf } from "./gltf";
 import { limparSopa } from "./malha";
 import { lerOff } from "./off";
+import type { Lido } from "./skp";
 
 /* OS LEITORES DO CONVERSOR — o módulo que leva o three ao navegador, e só
    depois que a pessoa solta um arquivo (`import()`). Cada formato
@@ -18,13 +20,8 @@ import { lerOff } from "./off";
    barra `blob:` e `data:` em img-src). Durante a leitura, o
    carregador de textura do three devolve uma textura vazia sem buscar nada. */
 
-export class ErroDeLeitura extends Error {}
-
-export interface Lido {
-  sopa: Float32Array;
-  /** quantos objetos (malhas) do arquivo entraram */
-  partes: number;
-}
+export { ErroDeLeitura };
+export type { Lido };
 
 type ArquivoSolto = { nome: string; dados: ArrayBuffer };
 
@@ -44,7 +41,9 @@ export async function lerModelo(arquivo: ArquivoSolto, companheiros: readonly Ar
         throw new ErroDeLeitura(e instanceof Error ? e.message : "Este .off está ilegível.");
       }
     } else if (ext === "skp") {
-      lido = await lerSkp(arquivo.dados);
+      /* aqui só chega o .skp de quando o navegador não deixou criar o leitor em segundo plano */
+      const { lerSkp } = await import("./skp");
+      lido = lerSkp(arquivo.dados);
     } else if (ext === "ply") {
       const { PLYLoader } = await import("three/addons/loaders/PLYLoader.js");
       const g = new PLYLoader().parse(arquivo.dados);
@@ -58,6 +57,8 @@ export async function lerModelo(arquivo: ArquivoSolto, companheiros: readonly Ar
     return { sopa, partes: lido.partes };
   } catch (e) {
     if (e instanceof ErroDeLeitura) throw e;
+    /* a memória acabou: o arquivo não está danificado, é grande demais para esta aba */
+    if (faltouMemoria(e)) throw new ErroDeLeitura(pesadoDemais(ext));
     /* o erro do glTF já vem escrito para a pessoa; os do three, não */
     if (e instanceof ErroDoGltf) throw new ErroDeLeitura(e.message);
     throw new ErroDeLeitura("Não consegui ler este arquivo. Ele pode estar corrompido ou ter sido salvo numa variação que o leitor não conhece. Tente exportar de novo, de preferência em STL ou OBJ.");
@@ -181,36 +182,4 @@ export function deObjeto(raiz: THREE.Object3D): Lido {
     }
   }
   return { sopa, partes: malhas.length };
-}
-
-/**
- * O .skp do SketchUp, pela OpenSKP (MIT, engenharia reversa do formato; lê o
- * SketchUp 2013–2020 e o 2021+). `buildScene` resolve componentes e grupos e
- * triangula tudo, no lugar do mundo, em METROS e Y para cima.
- *
- * `frontSideOnly`: cada face sai UMA vez. Sem isso, face com as duas cores
- * diferentes ganha uma cópia invertida no mesmo lugar — boa para ver, péssima
- * para imprimir (o fatiador vê paredes duplicadas e a malha deixa de fechar).
- */
-async function lerSkp(dados: ArrayBuffer): Promise<Lido> {
-  const { buildScene } = await import("openskp");
-  let cena;
-  try {
-    cena = buildScene(dados, { frontSideOnly: true });
-  } catch {
-    throw new ErroDeLeitura(`Não consegui ler este .skp (pode ser de uma versão do SketchUp que o leitor ainda não conhece, ou um arquivo danificado). ${SKP_PLANO_B}`);
-  }
-  const prims = cena.glbPrimitives ?? [];
-  const total = prims.reduce((s, p) => s + Math.floor(p.indices.length / 3), 0);
-  if (!total) throw new ErroDeLeitura(`Este .skp não tem nenhuma face (só linhas, textos ou nada). ${SKP_PLANO_B}`);
-  const sopa = new Float32Array(total * 9);
-  let o = 0;
-  for (const p of prims) {
-    const n = Math.floor(p.indices.length / 3) * 3;
-    for (let t = 0; t < n; t++) {
-      const i = p.indices[t] * 3;
-      sopa[o++] = p.positions[i]; sopa[o++] = p.positions[i + 1]; sopa[o++] = p.positions[i + 2];
-    }
-  }
-  return { sopa, partes: prims.length };
 }

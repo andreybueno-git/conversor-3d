@@ -141,6 +141,13 @@
 .cv-palco-erro { background: #fff8f7; color: var(--cv-tinta); }
 .cv-palco-erro strong { font-size: 1.15rem; }
 .cv-palco-erro span { max-width: 34rem; color: #5b5b60; }
+/* a leitura longa: o andamento real (número que muda, sem pular a largura) e o aviso de arquivo grande */
+.cv-andamento { color: var(--cv-tinta); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cv-palco-grande { max-width: 30rem; font-size: 0.88rem; line-height: 1.45; }
+/* o modo pesado: aviso calmo no lugar da prévia, sem cara de erro */
+.cv-palco-pesado { background: var(--cv-nevoa); color: var(--cv-tinta); }
+.cv-palco-pesado strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.cv-palco-pesado span { max-width: 32rem; color: #5b5b60; font-size: 0.95rem; }
 
 .cv-medidas {
   display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.35rem 0.8rem; margin: 0.6rem 0.25rem 0.2rem;
@@ -355,6 +362,7 @@ body {
 }
 .cv-botao-3mf u { color: var(--cv-acao-escura); font-weight: 700; text-underline-offset: 0.2em; }
 .cv-botao-3mf:disabled { cursor: progress; opacity: 0.7; }
+.cv-botao-3mf[aria-describedby]:disabled { cursor: not-allowed; }
 
 /* ── celular ───────────────────────────────────────────────────────── */
 /* o texto da caixa: "solte" com mouse, "toque" no celular */

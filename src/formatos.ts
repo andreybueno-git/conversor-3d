@@ -89,8 +89,41 @@ export const SKP_PLANO_B = "Se não abrir, dá para exportar pelo próprio Sketc
 
 /** O teto do arquivo: acima disto a aba de um celular cai antes de terminar. */
 export const MAX_BYTES = 300 * 1024 * 1024;
-/** O teto da malha, em triângulos (~250 MB de STL). */
-export const MAX_TRIANGULOS = 5_000_000;
+
+/**
+ * Acima disto (~250 MB de STL), o MODO PESADO: não é teto, o arquivo converte
+ * inteiro. Só a prévia 3D desliga (ela faria mais uma cópia da malha e a
+ * mandaria à placa de vídeo), o STL sai gravado em partes (gravar.ts), e o
+ * 3MF e o ZIP ficam de fora (juntar os vértices não cabe na memória).
+ * Exatamente no limiar ainda é o caminho de sempre.
+ */
+export const LIMIAR_MODO_PESADO = 5_000_000;
+
+export const modoPesado = (triangulos: number) => triangulos > LIMIAR_MODO_PESADO;
+
+/**
+ * Daqui para cima o arquivo é GRANDE e a tela avisa, durante a leitura, que
+ * pode passar de um minuto. O corte é medido: o .skp de 211 MB levou ~50 s
+ * no Chrome deste Mac (≈ 4 MB/s) e um celular é 3 a 4 vezes mais lento — 50 MB
+ * já dá perto de um minuto nele, e a leitura chega a usar ~17 vezes o tamanho
+ * do arquivo em memória (850 MB), o que já aperta a aba de um celular.
+ */
+export const ARQUIVO_GRANDE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * O andamento REAL que a OpenSKP informa (`onProgress`), em português. Só o
+ * passeio pelos registros sabe o total (vira %); as outras etapas contam o
+ * que já fizeram, sem saber quanto falta.
+ */
+export function textoDoAndamento(a: { etapa: string; feito: number; total: number }): string {
+  switch (a.etapa) {
+    case "tlv_walk": return `Lendo o arquivo: ${a.total > 0 ? Math.min(100, Math.floor((a.feito / a.total) * 100)) : 0}%`;
+    case "legacy_defs": return `Lendo os componentes: ${formatarInteiro(a.feito)}`;
+    case "build_scene": return `Montando o modelo: ${formatarInteiro(a.feito)} peças`;
+    case "triangulos": return `Juntando os ${formatarInteiro(a.total)} triângulos`;
+    default: return "Lendo…";
+  }
+}
 
 /**
  * O nome do arquivo de saída: o nome original sem a extensão, só com
