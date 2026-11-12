@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * O CONVERSOR, num navegador de verdade, com uma CSP tão fechada quanto a do
@@ -257,5 +259,165 @@ test.describe("SketchUp (.skp) direto", () => {
     expect(stl.length).toBe(84 + 50 * stl.readUInt32LE(80));
     expect(stl.readUInt32LE(80)).toBeGreaterThan(10);
     expect(v.pedidos, "nada saiu para a rede").toEqual([]);
+  });
+});
+
+/* ── o .skp lido em segundo plano, a queda para a linha principal e o modo pesado ── */
+
+const CADEIRA = new URL("./skp/chair_and_table.skp", import.meta.url).pathname;
+const TRIANGULOS_DA_CADEIRA = 352;
+
+/** Os primeiros 84 bytes de um arquivo (o cabeçalho do STL), sem ler os 250 MB. */
+function comecoDe(caminho: string): Buffer {
+  const b = Buffer.alloc(84);
+  const fd = openSync(caminho, "r");
+  try { readSync(fd, b, 0, 84, 0); } finally { closeSync(fd); }
+  return b;
+}
+
+/** Espia, do lado do teste, os Workers que a página cria (o código do site não sabe de nada). */
+async function espiarLeitores(page: Page, o: { segurar?: boolean } = {}) {
+  await page.addInitScript((segurar) => {
+    const Original = window.Worker;
+    const registro = { criados: [] as string[], mensagens: [] as string[], encerrados: 0, soltar: () => {} };
+    (window as unknown as { __leitores: typeof registro }).__leitores = registro;
+    window.Worker = class extends Original {
+      constructor(url: string | URL, op?: WorkerOptions) {
+        super(url, op);
+        registro.criados.push(String(url));
+        this.addEventListener("message", (e) => registro.mensagens.push((e as MessageEvent).data?.tipo));
+      }
+      /* "segurar": o arquivo só vai para o leitor quando o teste mandar — a leitura fica parada no meio */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      postMessage(m: unknown, t?: any) {
+        if (!segurar) return super.postMessage(m, t);
+        registro.soltar = () => super.postMessage(m, t);
+      }
+      terminate() { registro.encerrados++; super.terminate(); }
+    } as typeof Worker;
+  }, o.segurar ?? false);
+  return () => page.evaluate(() => (window as unknown as { __leitores: { criados: string[]; mensagens: string[]; encerrados: number } }).__leitores);
+}
+
+test.describe("SketchUp (.skp) em segundo plano", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("conversor3d:tutorial-visto", "1"));
+  });
+
+  test("o .skp é lido pelo Worker embutido, que é encerrado ao terminar", async ({ page }) => {
+    const leitores = await espiarLeitores(page);
+    await page.goto("/");
+    const v = vigiar(page);
+    await page.locator("input[type=file]").setInputFiles([CADEIRA]);
+    await expect(page.locator(".cv-fila li").first()).toHaveAttribute("data-estado", "pronto", { timeout: 20_000 });
+    const r = await leitores();
+    expect(r.criados, "um Worker, nascido do próprio index.html (blob:)").toHaveLength(1);
+    expect(r.criados[0]).toMatch(/^blob:/);
+    expect(r.mensagens, "o Worker leu: disse vivo, mandou o andamento e devolveu a sopa").toEqual(expect.arrayContaining(["vivo", "andamento", "lido"]));
+    expect(r.encerrados, "e foi encerrado (a memória volta)").toBe(1);
+    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em STL/ }).first().click()]);
+    expect(comecoDe((await baixado.path())!).readUInt32LE(80)).toBe(TRIANGULOS_DA_CADEIRA);
+    expect(v.pedidos, "nada saiu para a rede").toEqual([]);
+    expect(v.erros.filter((e) => /Content Security Policy|Refused/.test(e)), "nenhum bloqueio de CSP").toEqual([]);
+  });
+
+  test("tirar o .skp da fila no meio da leitura encerra o Worker e não mexe mais na tela", async ({ page }) => {
+    const leitores = await espiarLeitores(page, { segurar: true });
+    await page.goto("/");
+    await page.locator("input[type=file]").setInputFiles([
+      { name: "chair_and_table.skp", mimeType: "application/octet-stream", buffer: readFileSync(CADEIRA) }, arquivo("cubo.obj", CUBO_OBJ),
+    ]);
+    const cadeira = page.locator(".cv-fila li", { hasText: "chair_and_table.skp" });
+    await expect(cadeira).toHaveAttribute("data-estado", "lendo");
+    await expect.poll(async () => (await leitores()).criados.length).toBe(1);
+    await page.getByRole("button", { name: "Tirar chair_and_table.skp" }).click();
+    await expect(cadeira).toHaveCount(0);
+    expect((await leitores()).encerrados).toBe(1);
+    /* a fila anda: o próximo da fila é lido normalmente */
+    await expect(page.locator(".cv-fila li", { hasText: "cubo.obj" })).toHaveAttribute("data-estado", "pronto");
+    await page.evaluate(() => (window as unknown as { __leitores: { soltar(): void } }).__leitores.soltar());
+    await page.waitForTimeout(500);
+    await expect(page.locator(".cv-fila li")).toHaveCount(1);
+    expect((await leitores()).mensagens).not.toContain("lido");
+  });
+
+  test("sem Worker no navegador, o .skp é lido na linha principal, como antes", async ({ page }) => {
+    await page.addInitScript(() => { (window as unknown as { Worker: unknown }).Worker = undefined; });
+    await page.goto("/");
+    expect(await page.evaluate(() => typeof Worker)).toBe("undefined");
+    await page.locator("input[type=file]").setInputFiles([CADEIRA]);
+    await expect(page.locator(".cv-fila li").first()).toHaveAttribute("data-estado", "pronto", { timeout: 20_000 });
+    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em STL/ }).first().click()]);
+    expect(comecoDe((await baixado.path())!).readUInt32LE(80), "o mesmo resultado do Worker").toBe(TRIANGULOS_DA_CADEIRA);
+  });
+});
+
+test.describe("modo pesado", () => {
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "um STL de 250 MB: só no computador");
+    await page.addInitScript(() => localStorage.setItem("conversor3d:tutorial-visto", "1"));
+  });
+
+  test("um STL com mais triângulos que o limiar: sem prévia, sem 3MF, fora do ZIP, e o STL sai completo", async ({ page }) => {
+    test.setTimeout(240_000);
+    /* um STL binário de verdade, com 5.000.001 triângulos (o limiar + 1): 250 MB num arquivo temporário */
+    const n = 5_000_001;
+    const caminho = join(tmpdir(), `conversor-3d-pesado-${process.pid}.stl`);
+    try {
+      const b = Buffer.alloc(84 + 50 * n);
+      b.write("e2e modo pesado", 0);
+      b.writeUInt32LE(n, 80);
+      const bloco = 10_000;                                     // 10 mil triângulos diferentes, numa grade de 100 × 100 mm…
+      for (let t = 0; t < bloco; t++) {
+        const o = 84 + t * 50, x = t % 100, y = Math.floor(t / 100);
+        b.writeFloatLE(1, o + 8);
+        for (const [k, v] of [x, y, 0, x + 1, y, 0, x, y + 1, (t % 7) + 1, 0].entries()) if (k < 9) b.writeFloatLE(v, o + 12 + k * 4);
+      }
+      for (let t = bloco; t < n; t += bloco) b.copy(b, 84 + t * 50, 84, 84 + Math.min(bloco, n - t) * 50);   // …repetidos até o fim
+      writeFileSync(caminho, b);
+
+      await page.goto("/");
+      await page.locator("input[type=file]").setInputFiles([caminho]);
+      await page.locator("input[type=file]").setInputFiles([arquivo("a.obj", CUBO_OBJ), arquivo("b.obj", CUBO_OBJ)]);
+      const pesado = page.locator(".cv-fila li", { hasText: "conversor-3d-pesado" });
+      await expect(pesado).toHaveAttribute("data-estado", "pronto", { timeout: 120_000 });
+      await expect(page.locator('.cv-fila li[data-estado="pronto"]')).toHaveCount(3);
+      await page.locator(".cv-item", { hasText: "conversor-3d-pesado" }).click();
+
+      /* o aviso calmo no lugar da prévia, e nenhum canvas */
+      await expect(page.locator(".cv-palco-pesado")).toContainText("Modelo pesado: 5.000.001 triângulos");
+      await expect(page.locator(".cv-palco-pesado")).toContainText("sai completo");
+      await expect(page.locator(".cv-palco canvas")).toHaveCount(0);
+      /* unidade e giro continuam valendo: 100 × 100 × 7 mm; em cm, 1 m; girado em X, a altura troca de lado */
+      const lados = page.locator(".cv-medidas b");
+      await expect(lados).toHaveText(["100 mm", "100 mm", "7 mm"]);
+      await page.getByRole("radio", { name: "cm" }).click();
+      await expect(lados).toHaveText(["1 m", "1 m", "70 mm"]);
+      await page.getByRole("radio", { name: "mm" }).click();
+      await page.getByRole("button", { name: /Girar em X/ }).click();
+      await expect(lados).toHaveText(["100 mm", "7 mm", "100 mm"]);
+      /* 3MF desligado, com o motivo; o ZIP leva só os dois leves e diz que o pesado ficou de fora */
+      await expect(page.getByRole("button", { name: "Baixar em 3MF" })).toBeDisabled();
+      await expect(page.locator("#cv-sem-3mf")).toContainText("não cabe na memória");
+      await expect(page.getByRole("button", { name: /Baixar os 2 em STL/ })).toBeVisible();
+      await expect(page.locator(".cv-fora-do-zip")).toContainText("fica de fora do ZIP");
+
+      const [baixado] = await Promise.all([
+        page.waitForEvent("download", { timeout: 120_000 }),
+        page.locator(".cv-botao-stl").click(),
+      ]);
+      const saida = (await baixado.path())!;
+      expect(statSync(saida).size, "84 + 50 × 5.000.001 bytes").toBe(84 + 50 * n);
+      const cabeca = comecoDe(saida);
+      expect(cabeca.readUInt32LE(80)).toBe(n);
+      expect(cabeca.subarray(0, 24).toString()).toBe("Conversor 3D | mm | Z-up");
+      await expect(page.locator(".cv-aviso").first()).toContainText("com os 5.000.001 triângulos");
+
+      /* escolher um leve traz a prévia de volta */
+      await page.locator(".cv-item", { hasText: "a.obj" }).click();
+      await expect(page.locator(".cv-palco canvas")).toHaveCount(1);
+    } finally {
+      rmSync(caminho, { force: true });
+    }
   });
 });
