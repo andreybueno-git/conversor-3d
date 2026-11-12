@@ -64,7 +64,15 @@ export function lerSkpEmSegundoPlano(dados: ArrayBuffer, aoAndar: (a: Andamento)
     if (m.tipo === "vivo") {
       vivo = true;
       if (url) { URL.revokeObjectURL(url); url = ""; }
-      leitor!.postMessage(dados, [dados]);
+      try {
+        leitor!.postMessage(dados, [dados]);
+      } catch {
+        /* a transferência falhou (navegador que a recusa, ArrayBuffer já desligado): sem
+           isto, o Worker ficaria vivo e o item em "lendo" para sempre */
+        encerrar();
+        if (dados.byteLength > 0) resolver(null);         // ainda inteiro: lê-se aqui mesmo
+        else rejeitar(new ErroDeLeitura(SKP_ILEGIVEL));
+      }
     } else if (m.tipo === "andamento") {
       aoAndar({ etapa: m.etapa, feito: m.feito, total: m.total });
     } else if (m.tipo === "lido") {

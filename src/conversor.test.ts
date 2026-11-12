@@ -8,6 +8,7 @@ import {
 } from "./formatos";
 import { faltouMemoria, pesadoDemais } from "./erros";
 import { lerSkp } from "./skp";
+import { lerSkpEmSegundoPlano } from "./leitorSkp";
 import { converter, gravarStlEmPartes } from "./gravar";
 import { ErroDoGltf, lerGlb, nomeDoUri, normalizarGltf } from "./gltf";
 import { deObjeto, ErroDeLeitura, lerModelo } from "./ler";
@@ -551,5 +552,33 @@ describe("o andamento da leitura do .skp", () => {
   it("o modo pesado começa DEPOIS do limiar: exatamente no limiar ainda é o caminho de sempre", () => {
     expect(modoPesado(LIMIAR_MODO_PESADO)).toBe(false);
     expect(modoPesado(LIMIAR_MODO_PESADO + 1)).toBe(true);
+  });
+});
+
+describe("o leitor em segundo plano, com um Worker de mentira", () => {
+  it("se a transferência do arquivo falhar, o Worker é encerrado e o .skp é lido aqui (nada fica em 'lendo')", async () => {
+    const g = globalThis as Record<string, unknown>;
+    const antes = { Worker: g.Worker, codigo: g.__LEITOR_SKP__ };
+    let encerrados = 0;
+    class Falso {
+      onmessage: ((e: { data: unknown }) => void) | null = null;
+      onerror: unknown = null;
+      onmessageerror: unknown = null;
+      constructor() { queueMicrotask(() => this.onmessage?.({ data: { tipo: "vivo" } })); }
+      postMessage() { throw new DOMException("não dá para transferir", "DataCloneError"); }
+      terminate() { encerrados++; }
+    }
+    g.Worker = Falso;
+    g.__LEITOR_SKP__ = "/* leitor */";
+    try {
+      const dados = new ArrayBuffer(16);
+      const leitura = lerSkpEmSegundoPlano(dados, () => {});
+      await expect(leitura.promessa, "null = ler na linha principal").resolves.toBeNull();
+      expect(encerrados).toBe(1);
+      expect(dados.byteLength, "o arquivo continua inteiro").toBe(16);
+    } finally {
+      g.Worker = antes.Worker;
+      g.__LEITOR_SKP__ = antes.codigo;
+    }
   });
 });
