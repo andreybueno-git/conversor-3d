@@ -283,27 +283,38 @@ function comecoDe(caminho: string): Buffer {
 }
 
 /** Espia, do lado do teste, os Workers que a página cria (o código do site não sabe de nada). */
-async function espiarLeitores(page: Page, o: { segurar?: boolean } = {}) {
-  await page.addInitScript((segurar) => {
+async function espiarLeitores(page: Page, o: { segurarLido?: boolean } = {}) {
+  await page.addInitScript((segurarLido) => {
     const Original = window.Worker;
-    const registro = { criados: [] as string[], mensagens: [] as string[], encerrados: 0, soltar: () => {} };
+    const registro = { criados: [] as string[], mensagens: [] as string[], entregues: [] as string[], encerrados: 0, retido: false, soltar: () => {} };
     (window as unknown as { __leitores: typeof registro }).__leitores = registro;
+    type Ouvinte = ((this: Worker, e: MessageEvent) => unknown) | null;
     window.Worker = class extends Original {
+      #ouvinte: Ouvinte = null;
       constructor(url: string | URL, op?: WorkerOptions) {
         super(url, op);
         registro.criados.push(String(url));
-        this.addEventListener("message", (e) => registro.mensagens.push((e as MessageEvent).data?.tipo));
+        /* quem entrega as mensagens ao leitorSkp.ts é este espião (o onmessage abaixo só guarda o ouvinte) */
+        super.addEventListener("message", (e) => {
+          const tipo = (e as MessageEvent).data?.tipo;
+          registro.mensagens.push(tipo);
+          /* "segurarLido": a sopa pronta fica retida; o teste a entrega DEPOIS, ao ouvinte que existia quando ela chegou */
+          if (segurarLido && tipo === "lido") {
+            const ouvinte = this.#ouvinte;
+            registro.retido = true;
+            registro.soltar = () => { registro.entregues.push(tipo); ouvinte?.call(this, e as MessageEvent); };
+            return;
+          }
+          registro.entregues.push(tipo);
+          this.#ouvinte?.call(this, e as MessageEvent);
+        });
       }
-      /* "segurar": o arquivo só vai para o leitor quando o teste mandar — a leitura fica parada no meio */
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      postMessage(m: unknown, t?: any) {
-        if (!segurar) return super.postMessage(m, t);
-        registro.soltar = () => super.postMessage(m, t);
-      }
+      get onmessage() { return this.#ouvinte; }
+      set onmessage(f: Ouvinte) { this.#ouvinte = f; }
       terminate() { registro.encerrados++; super.terminate(); }
     } as typeof Worker;
-  }, o.segurar ?? false);
-  return () => page.evaluate(() => (window as unknown as { __leitores: { criados: string[]; mensagens: string[]; encerrados: number } }).__leitores);
+  }, o.segurarLido ?? false);
+  return () => page.evaluate(() => (window as unknown as { __leitores: { criados: string[]; mensagens: string[]; entregues: string[]; encerrados: number; retido: boolean } }).__leitores);
 }
 
 test.describe("SketchUp (.skp) em segundo plano", () => {
@@ -329,23 +340,45 @@ test.describe("SketchUp (.skp) em segundo plano", () => {
   });
 
   test("tirar o .skp da fila no meio da leitura encerra o Worker e não mexe mais na tela", async ({ page }) => {
-    const leitores = await espiarLeitores(page, { segurar: true });
+    const leitores = await espiarLeitores(page, { segurarLido: true });
     await page.goto("/");
     await page.locator("input[type=file]").setInputFiles([
       { name: "chair_and_table.skp", mimeType: "application/octet-stream", buffer: readFileSync(CADEIRA) }, arquivo("cubo.obj", CUBO_OBJ),
     ]);
     const cadeira = page.locator(".cv-fila li", { hasText: "chair_and_table.skp" });
+    /* o Worker leu tudo e a sopa está retida: a tela ainda está em "lendo", com o andamento real */
+    await expect.poll(async () => (await leitores()).retido).toBe(true);
     await expect(cadeira).toHaveAttribute("data-estado", "lendo");
-    await expect.poll(async () => (await leitores()).criados.length).toBe(1);
+    await expect(page.locator(".cv-palco .cv-andamento"), "o andamento da OpenSKP no palco").toHaveText(/^(Lendo o arquivo: \d+%|Lendo os componentes|Montando o modelo|Juntando os)/);
+    await expect(cadeira, "e na fila").toContainText(/lendo… (lendo o arquivo|lendo os componentes|montando o modelo|juntando os)/);
     await page.getByRole("button", { name: "Tirar chair_and_table.skp" }).click();
     await expect(cadeira).toHaveCount(0);
     expect((await leitores()).encerrados).toBe(1);
     /* a fila anda: o próximo da fila é lido normalmente */
     await expect(page.locator(".cv-fila li", { hasText: "cubo.obj" })).toHaveAttribute("data-estado", "pronto");
+    /* a resposta atrasada do Worker chega agora, ao ouvinte de antes: nada volta para a tela */
     await page.evaluate(() => (window as unknown as { __leitores: { soltar(): void } }).__leitores.soltar());
+    expect((await leitores()).entregues, "a sopa foi mesmo entregue, tarde").toContain("lido");
     await page.waitForTimeout(500);
     await expect(page.locator(".cv-fila li")).toHaveCount(1);
-    expect((await leitores()).mensagens).not.toContain("lido");
+    await expect(page.locator(".cv-fila li", { hasText: "chair_and_table.skp" })).toHaveCount(0);
+  });
+
+  test("com uma CSP que barra blob:, o Worker não nasce e o .skp é lido na linha principal", async ({ page }) => {
+    /* o servidor do e2e libera blob: em worker-src; aqui a resposta da página volta com a CSP antiga, sem blob: */
+    await page.route("**/", async (rota) => {
+      const resposta = await rota.fetch();
+      const csp = resposta.headers()["content-security-policy"];
+      expect(csp).toContain("worker-src blob:");
+      await rota.fulfill({ response: resposta, headers: { ...resposta.headers(), "content-security-policy": csp.replace("worker-src blob:", "worker-src 'self'") } });
+    });
+    const v = vigiar(page);
+    await page.goto("/");
+    await page.locator("input[type=file]").setInputFiles([CADEIRA]);
+    await expect(page.locator(".cv-fila li").first()).toHaveAttribute("data-estado", "pronto", { timeout: 20_000 });
+    expect(v.erros.some((e) => /Content Security Policy/.test(e) && /blob:/.test(e)), "a CSP recusou mesmo o Worker").toBe(true);
+    const [baixado] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Baixar em STL/ }).first().click()]);
+    expect(comecoDe((await baixado.path())!).readUInt32LE(80), "o mesmo resultado do Worker").toBe(TRIANGULOS_DA_CADEIRA);
   });
 
   test("sem Worker no navegador, o .skp é lido na linha principal, como antes", async ({ page }) => {
@@ -360,17 +393,23 @@ test.describe("SketchUp (.skp) em segundo plano", () => {
 });
 
 test.describe("modo pesado", () => {
+  /* o STL temporário de 250 MB: apagado no afterEach, que roda mesmo quando o teste estoura o tempo */
+  let caminho = "";
   test.beforeEach(async ({ page }, info) => {
     test.skip(info.project.name !== "desktop", "um STL de 250 MB: só no computador");
     await page.addInitScript(() => localStorage.setItem("conversor3d:tutorial-visto", "1"));
+  });
+  test.afterEach(() => {
+    if (caminho) rmSync(caminho, { force: true });
+    caminho = "";
   });
 
   test("um STL com mais triângulos que o limiar: sem prévia, sem 3MF, fora do ZIP, e o STL sai completo", async ({ page }) => {
     test.setTimeout(240_000);
     /* um STL binário de verdade, com 5.000.001 triângulos (o limiar + 1): 250 MB num arquivo temporário */
     const n = 5_000_001;
-    const caminho = join(tmpdir(), `conversor-3d-pesado-${process.pid}.stl`);
-    try {
+    caminho = join(tmpdir(), `conversor-3d-pesado-${process.pid}.stl`);
+    {
       const b = Buffer.alloc(84 + 50 * n);
       b.write("e2e modo pesado", 0);
       b.writeUInt32LE(n, 80);
@@ -383,8 +422,24 @@ test.describe("modo pesado", () => {
       for (let t = bloco; t < n; t += bloco) b.copy(b, 84 + t * 50, 84, 84 + Math.min(bloco, n - t) * 50);   // …repetidos até o fim
       writeFileSync(caminho, b);
 
+      /* a leitura do arquivo grande espera o teste: dá para ver o aviso de "arquivo grande" sem pressa */
+      await page.addInitScript(() => {
+        const ler = Blob.prototype.arrayBuffer;
+        let segurou = false;                                    // só a primeira leitura grande (a do arquivo) espera
+        Blob.prototype.arrayBuffer = function (this: Blob) {
+          if (segurou || this.size < 50 * 1024 * 1024) return ler.call(this);
+          segurou = true;
+          return new Promise((ok) => { (window as unknown as { __soltarLeitura: () => void }).__soltarLeitura = () => ok(ler.call(this)); });
+        };
+      });
       await page.goto("/");
       await page.locator("input[type=file]").setInputFiles([caminho]);
+      await expect(page.locator(".cv-fila li").first()).toHaveAttribute("data-estado", "lendo");
+      await expect(page.locator(".cv-palco-grande")).toContainText("Arquivo grande (");
+      await expect(page.locator(".cv-palco-grande")).toContainText("pode levar mais de um minuto");
+      await expect(page.locator(".cv-palco-grande")).toContainText("Chrome do computador");
+      await page.waitForFunction(() => "__soltarLeitura" in window);
+      await page.evaluate(() => (window as unknown as { __soltarLeitura: () => void }).__soltarLeitura());
       await page.locator("input[type=file]").setInputFiles([arquivo("a.obj", CUBO_OBJ), arquivo("b.obj", CUBO_OBJ)]);
       const pesado = page.locator(".cv-fila li", { hasText: "conversor-3d-pesado" });
       await expect(pesado).toHaveAttribute("data-estado", "pronto", { timeout: 120_000 });
@@ -423,8 +478,6 @@ test.describe("modo pesado", () => {
       /* escolher um leve traz a prévia de volta */
       await page.locator(".cv-item", { hasText: "a.obj" }).click();
       await expect(page.locator(".cv-palco canvas")).toHaveCount(1);
-    } finally {
-      rmSync(caminho, { force: true });
     }
   });
 });
