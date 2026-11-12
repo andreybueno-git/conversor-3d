@@ -31,7 +31,7 @@ const PERGUNTAS: { p: string; r: string }[] = [
   },
   {
     p: "Tem limite de tamanho?",
-    r: "O arquivo pode ter até 300 MB. Não há teto de triângulos: acima de 5 milhões, a prévia 3D fica desligada para caber na memória, e o STL sai completo mesmo assim (o 3MF e o ZIP ficam para os menores). Arquivo grande pode levar mais de um minuto para ler — vai melhor no Chrome do computador, com as outras abas fechadas. Se a memória do navegador acabar, a tela avisa e mostra outro caminho.",
+    r: "O arquivo pode ter até 300 MB. Não há teto de triângulos: acima de 5 milhões, a prévia 3D fica desligada para caber na memória, e o STL sai completo mesmo assim (o 3MF e o ZIP ficam para os menores). Arquivo grande pode levar mais de um minuto para ler — vai melhor no Chrome do computador, com as outras abas fechadas. Se a memória do navegador acabar, a tela costuma avisar; se a aba inteira fechar, tente no Chrome do computador com as outras abas fechadas (no .skp, dá para exportar o STL pelo próprio SketchUp).",
   },
 ];
 

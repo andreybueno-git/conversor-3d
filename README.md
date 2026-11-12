@@ -30,9 +30,11 @@ arquivo, byte a byte, sem uma segunda cópia da malha nem um bloco do tamanho do
 arquivo — há teste); o 3MF fica desligado nele (juntar os vértices não cabe na
 memória) e ele fica fora do ZIP de "baixar todos" (a tela diz isso). O teto que
 continua é o do arquivo: 300 MB. Arquivo de 50 MB ou mais avisa, durante a
-leitura, que pode passar de um minuto; se a memória do navegador acabar, a tela
-diz "pesado demais para este navegador" (com o plano B do SketchUp, no `.skp`)
-em vez de "arquivo danificado".
+leitura, que pode passar de um minuto; se a memória do navegador acabar e a
+página sobreviver (o Safari e o Firefox costumam sobreviver), a tela diz
+"pesado demais para este navegador" (com o plano B do SketchUp, no `.skp`) em
+vez de "arquivo danificado". No Chrome, quando a memória acaba de vez, quem cai
+é a aba inteira, e aí não há aviso que a página possa dar — o FAQ diz isso.
 
 Medido em 12/11 com um `.skp` real de 211 MB (SketchUp 2023, 6.190.607
 triângulos): no Chrome do computador, a página segue respondendo durante a
