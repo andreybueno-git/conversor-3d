@@ -26,23 +26,38 @@ export const CABECALHO_STL = "Conversor 3D | mm | Z-up";
 export function gravarStl(sopa: Float32Array): Uint8Array {
   const n = Math.floor(sopa.length / 9);
   const arquivo = new Uint8Array(84 + 50 * n);
-  arquivo.fill(0x20, 0, 80);
-  arquivo.set(new TextEncoder().encode(CABECALHO_STL), 0);
-  const d = new DataView(arquivo.buffer);
-  d.setUint32(80, n, true);
+  arquivo.set(cabecalhoStl(n), 0);
+  escreverTriangulosStl(new DataView(arquivo.buffer), 84, sopa, n);
+  return arquivo;
+}
+
+/** Os 84 bytes do começo do STL binário: 80 de cabeçalho e a quantidade de triângulos. */
+export function cabecalhoStl(triangulos: number): Uint8Array {
+  const c = new Uint8Array(84);
+  c.fill(0x20, 0, 80);
+  c.set(new TextEncoder().encode(CABECALHO_STL), 0);
+  new DataView(c.buffer).setUint32(80, triangulos, true);
+  return c;
+}
+
+/**
+ * Os registros de 50 bytes (normal, três cantos e 2 bytes vazios) de `n`
+ * triângulos da sopa, a partir do byte `inicio`. É a MESMA conta para o STL
+ * inteiro e para o gravado em partes (gravar.ts): os dois saem iguais byte a byte.
+ */
+export function escreverTriangulosStl(d: DataView, inicio: number, sopa: Float32Array, n: number): void {
   for (let t = 0; t < n; t++) {
     const p = t * 9;
     const ux = sopa[p + 3] - sopa[p], uy = sopa[p + 4] - sopa[p + 1], uz = sopa[p + 5] - sopa[p + 2];
     const vx = sopa[p + 6] - sopa[p], vy = sopa[p + 7] - sopa[p + 1], vz = sopa[p + 8] - sopa[p + 2];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const m = Math.hypot(nx, ny, nz) || 1;
-    const o = 84 + t * 50;
+    const o = inicio + t * 50;
     d.setFloat32(o, nx / m, true);
     d.setFloat32(o + 4, ny / m, true);
     d.setFloat32(o + 8, nz / m, true);
     for (let e = 0; e < 9; e++) d.setFloat32(o + 12 + e * 4, sopa[p + e], true);
   }
-  return arquivo;
 }
 
 /* ── ZIP ──────────────────────────────────────────────────────────────── */

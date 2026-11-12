@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACEITA, FORMATOS, SEM_LEITOR, SKP_PLANO_B, extensao, formatarBytes, formatarInteiro, formatarMm, formatoDe, nomeDeSaida, nomesUnicos,
 } from "./formatos";
-import { converter } from "./gravar";
+import { converter, gravarStlEmPartes } from "./gravar";
 import { ErroDoGltf, lerGlb, nomeDoUri, normalizarGltf } from "./gltf";
 import { deObjeto, ErroDeLeitura, lerModelo } from "./ler";
 import {
@@ -386,5 +386,65 @@ describe("SketchUp (.skp)", () => {
 
   it("um .skp que não é .skp vira uma frase com o plano B, não o erro da biblioteca", async () => {
     await expect(lerModelo({ nome: "falso.skp", dados: enc("isto não é sketchup") }, [])).rejects.toThrow(/Exportar, não Baixar/);
+  });
+});
+
+describe("modo pesado: o STL gravado em partes", () => {
+  /** Junta as partes num arquivo só, para comparar com o caminho de sempre. */
+  async function emPartes(sopa: Float32Array, unidade: "mm" | "cm" | "m" | "pol", giro: typeof SEM_GIRO, triangulosPorParte: number) {
+    const partes: Uint8Array[] = [];
+    const andamento: number[] = [];
+    const r = await gravarStlEmPartes(sopa, { unidade, giro, triangulosPorParte, aoEntregar: (p) => partes.push(p), ceder: (f) => { andamento.push(f); } });
+    const total = partes.reduce((s, p) => s + p.length, 0);
+    const junto = new Uint8Array(total);
+    let o = 0;
+    for (const p of partes) { junto.set(p, o); o += p.length; }
+    return { r, junto, partes, andamento };
+  }
+
+  /** Uma sopa "suja" de propósito: números quebrados, negativos, zeros (−0 incluso) e triângulos sem área. */
+  function sopaDeTeste(n: number): Float32Array {
+    const s = new Float32Array(n * 9);
+    let x = 12345;
+    const aleatorio = () => { x = (Math.imul(x, 1103515245) + 12345) >>> 0; return x / 2 ** 32; };
+    for (let i = 0; i < s.length; i++) s[i] = (aleatorio() - 0.37) * 1234.567;
+    s[0] = -0; s[1] = 0; s[2] = -0;                       // −0 tem bits diferentes de 0
+    s.copyWithin(9, 0, 3); s.copyWithin(12, 0, 3);        // um triângulo sem área (normal 0, 0, 0)
+    return s;
+  }
+
+  const giros = { "sem giro": SEM_GIRO, "Y para Z": Y_PARA_Z, "Y para Z, girado em Z e em Y": girar(girar(Y_PARA_Z, "z"), "y") };
+  for (const [nomeDoGiro, giro] of Object.entries(giros)) {
+    for (const unidade of ["mm", "cm", "m", "pol"] as const) {
+      it(`sai igual, byte a byte, ao STL de sempre (${nomeDoGiro}, ${unidade})`, async () => {
+        const sopa = sopaDeTeste(1003);
+        const sempre = await converter(sopa, { unidade, giro, saida: "stl", titulo: "x" });
+        const { r, junto, partes } = await emPartes(sopa, unidade, giro, 97);
+        expect(partes.length, "cabeçalho + 11 partes de até 97 triângulos").toBe(1 + Math.ceil(1003 / 97));
+        expect(junto.length).toBe(sempre.bytes.length);
+        expect(Buffer.from(junto).equals(Buffer.from(sempre.bytes)), "os mesmos bytes").toBe(true);
+        expect(r.triangulos).toBe(1003);
+        expect(r.bytes).toBe(sempre.bytes.length);
+        expect(r.medidas).toEqual(sempre.medidas);
+      });
+    }
+  }
+
+  it("um .skp de verdade também sai igual, e o andamento vai até 1 sem voltar", async () => {
+    const b = readFileSync(new URL("../e2e/skp/chair_and_table.skp", import.meta.url));
+    const lido = await lerModelo({ nome: "chair_and_table.skp", dados: buf(b) }, []);
+    const sempre = await converter(lido.sopa, { unidade: "cm", giro: girar(Y_PARA_Z, "x"), saida: "stl", titulo: "x" });
+    const { junto, andamento } = await emPartes(lido.sopa, "cm", girar(Y_PARA_Z, "x"), 1000);
+    expect(Buffer.from(junto).equals(Buffer.from(sempre.bytes))).toBe(true);
+    expect(andamento.at(-1)).toBe(1);
+    expect(andamento.every((f, i) => i === 0 || f > andamento[i - 1])).toBe(true);
+  });
+
+  it("parte maior que a malha inteira: o cabeçalho e uma parte só", async () => {
+    const sopa = cubo();
+    const sempre = await converter(sopa, { unidade: "mm", giro: SEM_GIRO, saida: "stl", titulo: "x" });
+    const { junto, partes } = await emPartes(sopa, "mm", SEM_GIRO, 1_000_000);
+    expect(partes.map((p) => p.length)).toEqual([84, 50 * 12]);
+    expect(Buffer.from(junto).equals(Buffer.from(sempre.bytes))).toBe(true);
   });
 });
